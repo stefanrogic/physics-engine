@@ -2,6 +2,14 @@
 
 A 3D physics engine built with Java and LWJGL, featuring real-time physics simulation with collision detection and response.
 
+## Version Information
+
+- **Java**: 24
+- **LWJGL**: 3.3.6 (Latest stable)
+- **JOML**: 1.10.8 (Latest stable)
+- **Maven**: 3.6.3+ required
+- **Last Updated**: January 2025
+
 ## Features
 
 - **Real-time Physics Simulation**: Gravity, velocity, acceleration, and collision dynamics
@@ -14,8 +22,8 @@ A 3D physics engine built with Java and LWJGL, featuring real-time physics simul
 ## Requirements
 
 - Java 24 or higher
-- Maven 3.6+
-- LWJGL 3.3.3+ (automatically handled by Maven)
+- Maven 3.6.3+
+- LWJGL 3.3.6+ (automatically handled by Maven)
 
 ## Project Structure
 
@@ -119,9 +127,10 @@ The default scene includes:
 
 ## Dependencies
 
-- **LWJGL**: Low-level graphics, audio, and parallel computing wrapper
-- **JOML**: Java OpenGL Math Library for 3D mathematics
-- **JUnit**: Testing framework (for future unit tests)
+- **LWJGL 3.3.6**: Low-level graphics, audio, and parallel computing wrapper
+- **JOML 1.10.8**: Java OpenGL Math Library for 3D mathematics
+- **JUnit 5.11.3**: Testing framework (for future unit tests)
+- **Maven Plugins**: All using latest stable versions (Compiler 3.14.0, Surefire 3.5.3, Exec 3.5.1)
 
 ## Development Notes
 
