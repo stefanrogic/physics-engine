@@ -13,7 +13,7 @@ A 3D physics engine built with Java and LWJGL, featuring real-time physics simul
 
 ## Requirements
 
-- Java 17 or higher
+- Java 24 or higher
 - Maven 3.6+
 - LWJGL 3.3.3+ (automatically handled by Maven)
 
@@ -141,7 +141,3 @@ The default scene includes:
 - [ ] Performance optimizations
 - [ ] User interaction (mouse picking, object manipulation)
 - [ ] Scene loading and saving
-
-## License
-
-This project is open source and available under the MIT License.
