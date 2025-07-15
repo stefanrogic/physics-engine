@@ -1,6 +1,6 @@
-# Physics Simulator
+# Solar System
 
-A 3D physics engine built with Java and LWJGL, featuring real-time physics simulation with collision detection and response.
+A 3D solar system simulation built with Java and LWJGL. Features accurate orbital dynamics and customizable viewing angles.
 
 ## Version Information
 
