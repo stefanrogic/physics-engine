@@ -4,12 +4,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.physicsengine</groupId>
+    <groupId>com.stefanrogic</groupId>
     <artifactId>physics-simulator</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>Physics Simulator</name>
+    <name>Solar System Simulation</name>
     <description>A physics engine built with LWJGL</description>
 
     <properties>
@@ -181,7 +181,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.1</version>
                 <configuration>
-                    <mainClass>com.physicsengine.Main</mainClass>
+                    <mainClass>com.stefanrogic.Main</mainClass>
                 </configuration>
             </plugin>
         </plugins>

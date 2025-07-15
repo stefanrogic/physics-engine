@@ -1,4 +1,4 @@
-package com.physicsengine.core;
+package com.stefanrogic.core;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.glClear;

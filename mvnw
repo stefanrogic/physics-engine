@@ -19,7 +19,7 @@
 # ----------------------------------------------------------------------------
 
 # ----------------------------------------------------------------------------
-# Apache Maven Wrapper startup batch script, version 3.2.0
+# Maven Wrapper startup script, version 3.2.0
 #
 # Required ENV vars:
 # ------------------
@@ -27,6 +27,7 @@
 #
 # Optional ENV vars
 # -----------------
+#   M2_HOME - location of maven2's installed home dir
 #   MAVEN_OPTS - parameters passed to the Java VM when running Maven
 #     e.g. to debug Maven itself, use
 #       set MAVEN_OPTS=-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8000
@@ -135,6 +136,7 @@ fi
 # traverses directory structure from process work directory to filesystem root
 # first directory with .mvn subdirectory is considered project base directory
 find_maven_basedir() {
+
   if [ -z "$1" ]
   then
     echo "Path not specified to find_maven_basedir"
@@ -154,7 +156,7 @@ find_maven_basedir() {
     fi
     # end workaround
   done
-  printf '%s' "$(cd "$basedir"; pwd)"
+  echo "${basedir}"
 }
 
 # concatenates all lines of a file
@@ -164,7 +166,7 @@ concat_lines() {
   fi
 }
 
-BASE_DIR=$(find_maven_basedir "$(dirname $0)")
+BASE_DIR=`find_maven_basedir "$(pwd)"`
 if [ -z "$BASE_DIR" ]; then
   exit 1;
 fi

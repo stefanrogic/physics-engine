@@ -1,6 +1,6 @@
-package com.physicsengine;
+package com.stefanrogic;
 
-import com.physicsengine.core.Window;
+import com.stefanrogic.core.Window;
 
 public class Main {
     private static final int WINDOW_WIDTH = 1200;
