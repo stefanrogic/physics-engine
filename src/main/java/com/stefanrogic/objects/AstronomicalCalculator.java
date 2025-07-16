@@ -12,29 +12,21 @@ public class AstronomicalCalculator {
     // SOURCE: NASA JPL APPROXIMATE POSITIONS OF THE PLANETS
     
     // MERCURY ORBITAL ELEMENTS
-    private static final double MERCURY_SEMI_MAJOR_AXIS = 0.387098; // AU
-    private static final double MERCURY_ECCENTRICITY = 0.205635;
     private static final double MERCURY_MEAN_LONGITUDE = 252.251; // DEGREES AT J2000.0
     private static final double MERCURY_LONGITUDE_OF_PERIHELION = 77.456; // DEGREES
     private static final double MERCURY_MEAN_MOTION = 4.09233445; // DEGREES PER DAY
     
     // VENUS ORBITAL ELEMENTS
-    private static final double VENUS_SEMI_MAJOR_AXIS = 0.723332; // AU
-    private static final double VENUS_ECCENTRICITY = 0.006773;
     private static final double VENUS_MEAN_LONGITUDE = 181.980; // DEGREES AT J2000.0
     private static final double VENUS_LONGITUDE_OF_PERIHELION = 131.564; // DEGREES
     private static final double VENUS_MEAN_MOTION = 1.60213034; // DEGREES PER DAY
     
     // EARTH ORBITAL ELEMENTS
-    private static final double EARTH_SEMI_MAJOR_AXIS = 1.000001018; // AU
-    private static final double EARTH_ECCENTRICITY = 0.01671123;
     private static final double EARTH_MEAN_LONGITUDE = 100.464; // DEGREES AT J2000.0
     private static final double EARTH_LONGITUDE_OF_PERIHELION = 102.938; // DEGREES
     private static final double EARTH_MEAN_MOTION = 0.98560028; // DEGREES PER DAY
     
     // MARS ORBITAL ELEMENTS
-    private static final double MARS_SEMI_MAJOR_AXIS = 1.523679; // AU
-    private static final double MARS_ECCENTRICITY = 0.093412;
     private static final double MARS_MEAN_LONGITUDE = 355.433; // DEGREES AT J2000.0
     private static final double MARS_LONGITUDE_OF_PERIHELION = 336.041; // DEGREES
     private static final double MARS_MEAN_MOTION = 0.52403840; // DEGREES PER DAY
