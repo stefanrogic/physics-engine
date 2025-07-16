@@ -12,29 +12,36 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import com.stefanrogic.objects.Sun;
 import com.stefanrogic.objects.Mercury;
+import com.stefanrogic.objects.Venus;
+import com.stefanrogic.objects.Earth;
 
 public class Window {
     private long windowHandle;
     private int gridShaderProgram, sunShaderProgram;
     private int gridVAO, gridVBO;
     private int orbitVAO, orbitVBO; // FOR ORBITAL PATHS
+    private int venusOrbitVAO, venusOrbitVBO; // FOR VENUS ORBIT
+    private int earthOrbitVAO, earthOrbitVBO; // FOR EARTH ORBIT
     private int gridMvpLocation, sunMvpLocation, sunColorLocation;
     
     // CAMERA SETTINGS - FPS STYLE
     private float cameraX = 0.0f;
-    private float cameraY = 200.0f; // START ABOVE THE GRID
-    private float cameraZ = 500.0f;
-    private float cameraPitch = 0.0f; // UP/DOWN ROTATION
-    private float cameraYaw = 0.0f;   // LEFT/RIGHT ROTATION
+    private float cameraY = 5000.0f; // ELEVATED VIEW TO SEE ORBITAL PLANES BETTER
+    private float cameraZ = 30000.0f; // FURTHER BACK TO PROPERLY SEE EARTH'S ORBIT
+    private float cameraPitch = -20.0f; // LOOKING DOWN MORE TO SEE ORBITAL PLANE
+    private float cameraYaw = 180.0f;   // FACING TOWARDS THE SUN (NEGATIVE Z DIRECTION)
     
     // MOUSE CONTROLS
     private boolean mousePressed = false;
     private double lastMouseX = 0.0;
     private double lastMouseY = 0.0;
+    // MOUSE SENSITIVITY SETTINGS
     private final float MOUSE_SENSITIVITY = 0.3f;
+    private final float TRACKING_MOUSE_SENSITIVITY = 0.02f; // MUCH SLOWER FOR ORBITAL CAMERA
     
     // MOVEMENT CONTROLS
     private boolean wPressed = false;
@@ -49,19 +56,60 @@ public class Window {
     // GRID TOGGLE
     private boolean gridVisible = true;
     
+    // ORBITAL MOTION PAUSE
+    private boolean orbitalMotionPaused = false;
+    
+    // CAMERA TRACKING
+    private boolean cameraTrackingEnabled = false;
+    private String trackedObject = "NONE"; // "SUN", "MERCURY", "VENUS", "EARTH", "NONE"
+    
     // UI ELEMENTS
     private int uiShaderProgram;
     private int uiVAO, uiVBO;
+    private int pauseButtonVAO, pauseButtonVBO; // FOR PAUSE BUTTON
     private int textVAO, textVBO; // FOR TEXT RENDERING
+    private int pauseIconVAO, pauseIconVBO; // FOR PAUSE ICON RENDERING
+    
+    // TRACKING BUTTON VAOs
+    private int sunButtonVAO, sunButtonVBO;
+    private int mercuryButtonVAO, mercuryButtonVBO;
+    private int venusButtonVAO, venusButtonVBO;
+    private int earthButtonVAO, earthButtonVBO;
     private int uiMvpLocation, uiColorLocation;
+    
+    // UI BUTTON COORDINATES - GRID BUTTON
     private final float BUTTON_X = 20.0f;
     private final float BUTTON_Y = 20.0f;
     private final float BUTTON_WIDTH = 40.0f;
     private final float BUTTON_HEIGHT = 40.0f;
     
+    // UI BUTTON COORDINATES - PAUSE BUTTON
+    private final float PAUSE_BUTTON_X = 70.0f; // NEXT TO GRID BUTTON
+    private final float PAUSE_BUTTON_Y = 20.0f;
+    private final float PAUSE_BUTTON_WIDTH = 40.0f;
+    private final float PAUSE_BUTTON_HEIGHT = 40.0f;
+    
+    // UI BUTTON COORDINATES - TRACKING BUTTONS (ROW BELOW)
+    private final float TRACK_BUTTON_WIDTH = 30.0f;
+    private final float TRACK_BUTTON_HEIGHT = 25.0f;
+    private final float TRACK_BUTTON_Y = 70.0f; // BELOW MAIN BUTTONS
+    private final float SUN_BUTTON_X = 20.0f;
+    private final float MERCURY_BUTTON_X = 55.0f;
+    private final float VENUS_BUTTON_X = 90.0f;
+    private final float EARTH_BUTTON_X = 125.0f;
+    
     // SUN AND PLANETS
     private Sun sun;
     private Mercury mercury;
+    private Venus venus;
+    private Earth earth;
+    
+    // TIME TRACKING FOR ORBITAL MOTION
+    private long lastTime;
+    private static final float TIME_ACCELERATION = 86400.0f; // 1 SECOND = 1 DAY (SPEED UP FACTOR)
+    
+    // TRACKING CAMERA ZOOM DISTANCE
+    private float trackingZoomDistance = 1.0f; // MULTIPLIER FOR VIEWING DISTANCE
     
     public void create(int width, int height, String title) {
         // INIT
@@ -97,6 +145,8 @@ public class Window {
         createGrid();
         createSun();
         createMercury();
+        createVenus();
+        createEarth();
         createOrbits(); // CREATE ORBITS AFTER PLANETS
         createUI();
         
@@ -142,10 +192,32 @@ public class Window {
                     double[] ypos = new double[1];
                     glfwGetCursorPos(windowHandle, xpos, ypos);
                     
-                    // CHECK IF CLICK IS ON BUTTON
+                    // CHECK IF CLICK IS ON GRID BUTTON
                     if (isPointInButton(xpos[0], ypos[0])) {
                         gridVisible = !gridVisible; // TOGGLE GRID
                         System.out.println("Grid " + (gridVisible ? "ON" : "OFF"));
+                    } 
+                    // CHECK IF CLICK IS ON PAUSE BUTTON
+                    else if (isPointInPauseButton(xpos[0], ypos[0])) {
+                        orbitalMotionPaused = !orbitalMotionPaused; // TOGGLE PAUSE
+                        System.out.println("Orbital Motion " + (orbitalMotionPaused ? "PAUSED" : "RESUMED"));
+                        // RESET TIME TRACKING WHEN RESUMING TO AVOID JUMPS
+                        if (!orbitalMotionPaused) {
+                            lastTime = System.nanoTime();
+                        }
+                    } 
+                    // CHECK IF CLICK IS ON TRACKING BUTTONS
+                    else if (isPointInTrackingButton(xpos[0], ypos[0], "SUN")) {
+                        setTrackedObject("SUN");
+                    }
+                    else if (isPointInTrackingButton(xpos[0], ypos[0], "MERCURY")) {
+                        setTrackedObject("MERCURY");
+                    }
+                    else if (isPointInTrackingButton(xpos[0], ypos[0], "VENUS")) {
+                        setTrackedObject("VENUS");
+                    }
+                    else if (isPointInTrackingButton(xpos[0], ypos[0], "EARTH")) {
+                        setTrackedObject("EARTH");
                     } else {
                         // START CAMERA ROTATION
                         mousePressed = true;
@@ -163,8 +235,11 @@ public class Window {
                 double deltaX = xpos - lastMouseX;
                 double deltaY = ypos - lastMouseY;
                 
-                cameraYaw -= (float) deltaX * MOUSE_SENSITIVITY; // INVERTED X FOR NATURAL ROTATION
-                cameraPitch += (float) deltaY * MOUSE_SENSITIVITY; // NORMAL Y FOR NATURAL UP/DOWN
+                // USE DIFFERENT SENSITIVITY BASED ON TRACKING MODE
+                float sensitivity = cameraTrackingEnabled ? TRACKING_MOUSE_SENSITIVITY : MOUSE_SENSITIVITY;
+                
+                cameraYaw -= (float) deltaX * sensitivity; // INVERTED X FOR NATURAL ROTATION
+                cameraPitch += (float) deltaY * sensitivity; // NORMAL Y FOR NATURAL UP/DOWN
                 
                 // CLAMP PITCH TO PREVENT FLIPPING
                 cameraPitch = Math.max(-89.0f, Math.min(89.0f, cameraPitch));
@@ -174,52 +249,80 @@ public class Window {
             }
         });
         
-        // SCROLL WHEEL - REMOVE OR REPURPOSE (OPTIONAL: COULD ADJUST MOVEMENT SPEED)
+        // SCROLL WHEEL - ZOOM IN/OUT WHEN TRACKING, OTHERWISE UNUSED
         glfwSetScrollCallback(windowHandle, (window, xoffset, yoffset) -> {
-            // OPTIONAL: ADJUST MOVEMENT SPEED WITH SCROLL WHEEL
-            // movementSpeed += (float) yoffset * 2.0f;
-            // movementSpeed = Math.max(1.0f, Math.min(50.0f, movementSpeed));
+            if (cameraTrackingEnabled) {
+                // ADJUST ZOOM DISTANCE WHEN TRACKING - MORE SENSITIVE ZOOM
+                trackingZoomDistance -= (float) yoffset * 0.15f;
+                trackingZoomDistance = Math.max(0.05f, Math.min(10.0f, trackingZoomDistance)); // MUCH CLOSER ZOOM RANGE
+                System.out.println("Tracking zoom: " + String.format("%.2f", trackingZoomDistance));
+            }
         });
+        
+        // INITIALIZE TIME TRACKING FOR ORBITAL MOTION
+        lastTime = System.nanoTime();
+        
+        // DEBUG: PRINT PLANETARY POSITIONS AT STARTUP
+        System.out.println("=== PLANETARY POSITIONS ===");
+        System.out.println("Sun: " + sun.getPosition().x + ", " + sun.getPosition().y + ", " + sun.getPosition().z);
+        System.out.println("Mercury: " + mercury.getPosition().x + ", " + mercury.getPosition().y + ", " + mercury.getPosition().z + " (distance: " + mercury.getDistanceFromSun() + ")");
+        System.out.println("Venus: " + venus.getPosition().x + ", " + venus.getPosition().y + ", " + venus.getPosition().z + " (distance: " + venus.getDistanceFromSun() + ")");
+        System.out.println("Earth: " + earth.getPosition().x + ", " + earth.getPosition().y + ", " + earth.getPosition().z + " (distance: " + earth.getDistanceFromSun() + ")");
+        System.out.println("Camera: " + cameraX + ", " + cameraY + ", " + cameraZ);
+        System.out.println("========================");
     }
     
     private void updateCameraMovement() {
-        // CALCULATE FORWARD/RIGHT VECTORS BASED ON CAMERA ROTATION
-        float radPitch = (float) Math.toRadians(cameraPitch);
-        float radYaw = (float) Math.toRadians(cameraYaw);
+        // CHECK IF ANY MOVEMENT KEY IS PRESSED
+        boolean anyMovementPressed = wPressed || sPressed || aPressed || dPressed || spacePressed;
         
-        // FORWARD VECTOR (WHERE CAMERA IS LOOKING)
-        float forwardX = (float) (Math.cos(radPitch) * Math.sin(radYaw));
-        float forwardY = (float) (-Math.sin(radPitch));
-        float forwardZ = (float) (Math.cos(radPitch) * Math.cos(radYaw));
+        // IF TRACKING IS ENABLED AND MOVEMENT KEYS ARE PRESSED, DISABLE TRACKING
+        if (cameraTrackingEnabled && anyMovementPressed) {
+            cameraTrackingEnabled = false;
+            trackedObject = "NONE";
+            System.out.println("Camera tracking disabled - manual movement detected");
+        }
         
-        // RIGHT VECTOR (PERPENDICULAR TO FORWARD, FOR STRAFE)
-        float rightX = (float) Math.sin(radYaw - Math.PI/2);
-        float rightZ = (float) Math.cos(radYaw - Math.PI/2);
-        
-        // DETERMINE MOVEMENT SPEED (FAST IF SHIFT IS HELD, NORMAL OTHERWISE)
-        float currentSpeed = shiftPressed ? MOVEMENT_SPEED_FAST : MOVEMENT_SPEED;
-        
-        // APPLY MOVEMENT BASED ON PRESSED KEYS
-        if (wPressed) { // FORWARD
-            cameraX += forwardX * currentSpeed;
-            cameraY += forwardY * currentSpeed;
-            cameraZ += forwardZ * currentSpeed;
-        }
-        if (sPressed) { // BACKWARD
-            cameraX -= forwardX * currentSpeed;
-            cameraY -= forwardY * currentSpeed;
-            cameraZ -= forwardZ * currentSpeed;
-        }
-        if (aPressed) { // STRAFE LEFT
-            cameraX -= rightX * currentSpeed;
-            cameraZ -= rightZ * currentSpeed;
-        }
-        if (dPressed) { // STRAFE RIGHT
-            cameraX += rightX * currentSpeed;
-            cameraZ += rightZ * currentSpeed;
-        }
-        if (spacePressed) { // UP
-            cameraY += currentSpeed;
+        // ONLY APPLY MANUAL MOVEMENT IF TRACKING IS DISABLED
+        if (!cameraTrackingEnabled) {
+            // CALCULATE FORWARD/RIGHT VECTORS BASED ON CAMERA ROTATION
+            float radPitch = (float) Math.toRadians(cameraPitch);
+            float radYaw = (float) Math.toRadians(cameraYaw);
+            
+            // FORWARD VECTOR (WHERE CAMERA IS LOOKING)
+            float forwardX = (float) (Math.cos(radPitch) * Math.sin(radYaw));
+            float forwardY = (float) (-Math.sin(radPitch));
+            float forwardZ = (float) (Math.cos(radPitch) * Math.cos(radYaw));
+            
+            // RIGHT VECTOR (PERPENDICULAR TO FORWARD, FOR STRAFE)
+            float rightX = (float) Math.sin(radYaw - Math.PI/2);
+            float rightZ = (float) Math.cos(radYaw - Math.PI/2);
+            
+            // DETERMINE MOVEMENT SPEED (FAST IF SHIFT IS HELD, NORMAL OTHERWISE)
+            float currentSpeed = shiftPressed ? MOVEMENT_SPEED_FAST : MOVEMENT_SPEED;
+            
+            // APPLY MOVEMENT BASED ON PRESSED KEYS
+            if (wPressed) { // FORWARD
+                cameraX += forwardX * currentSpeed;
+                cameraY += forwardY * currentSpeed;
+                cameraZ += forwardZ * currentSpeed;
+            }
+            if (sPressed) { // BACKWARD
+                cameraX -= forwardX * currentSpeed;
+                cameraY -= forwardY * currentSpeed;
+                cameraZ -= forwardZ * currentSpeed;
+            }
+            if (aPressed) { // STRAFE LEFT
+                cameraX -= rightX * currentSpeed;
+                cameraZ -= rightZ * currentSpeed;
+            }
+            if (dPressed) { // STRAFE RIGHT
+                cameraX += rightX * currentSpeed;
+                cameraZ += rightZ * currentSpeed;
+            }
+            if (spacePressed) { // UP
+                cameraY += currentSpeed;
+            }
         }
     }
 
@@ -320,9 +423,9 @@ public class Window {
     }
     
     private void createGrid() {
-        // EXPANDED GRID FOR NEW SCALE (1 UNIT = 10,000 KM)
-        int gridSize = 100; // MUCH LARGER GRID
-        float spacing = 200.0f; // LARGER SPACING (2 MILLION KM PER GRID SQUARE)
+        // EXPANDED GRID TO COVER EARTH'S ORBIT (EARTH AT ~15,000 UNITS)
+        int gridSize = 200; // EVEN LARGER GRID TO COVER EARTH'S ORBIT
+        float spacing = 200.0f; // SPACING (2 MILLION KM PER GRID SQUARE)
         int numLines = (gridSize + 1) * 4;
         float[] vertices = new float[numLines * 3];
         
@@ -429,6 +532,72 @@ public class Window {
         glBindVertexArray(0);
     }
     
+    private void createVenus() {
+        venus = new Venus();
+        
+        // CREATE VAO, VBO, EBO FOR VENUS
+        int VAO = glGenVertexArrays();
+        int VBO = glGenBuffers();
+        int EBO = glGenBuffers();
+        
+        venus.setVAO(VAO);
+        venus.setVBO(VBO);
+        venus.setEBO(EBO);
+        
+        glBindVertexArray(VAO);
+        
+        // UPLOAD VERTEX DATA
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(venus.getSphere().getVertices().length);
+        vertexBuffer.put(venus.getSphere().getVertices()).flip();
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+        
+        // UPLOAD INDEX DATA
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        IntBuffer indexBuffer = BufferUtils.createIntBuffer(venus.getSphere().getIndices().length);
+        indexBuffer.put(venus.getSphere().getIndices()).flip();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
+    private void createEarth() {
+        earth = new Earth();
+        
+        // CREATE VAO, VBO, EBO FOR EARTH
+        int VAO = glGenVertexArrays();
+        int VBO = glGenBuffers();
+        int EBO = glGenBuffers();
+        
+        earth.setVAO(VAO);
+        earth.setVBO(VBO);
+        earth.setEBO(EBO);
+        
+        glBindVertexArray(VAO);
+        
+        // UPLOAD VERTEX DATA
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(earth.getSphere().getVertices().length);
+        vertexBuffer.put(earth.getSphere().getVertices()).flip();
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+        
+        // UPLOAD INDEX DATA
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        IntBuffer indexBuffer = BufferUtils.createIntBuffer(earth.getSphere().getIndices().length);
+        indexBuffer.put(earth.getSphere().getIndices()).flip();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
     private void createUI() {
         // CREATE UI BUTTON (2D QUAD)
         float[] buttonVertices = {
@@ -455,8 +624,36 @@ public class Window {
         
         glBindVertexArray(0);
         
-        // CREATE TEXT GEOMETRY FOR "GRID"
+        // CREATE PAUSE BUTTON (2D QUAD)
+        float[] pauseButtonVertices = {
+            // PAUSE BUTTON RECTANGLE (X, Y COORDINATES)
+            PAUSE_BUTTON_X, PAUSE_BUTTON_Y,                           // BOTTOM LEFT
+            PAUSE_BUTTON_X + PAUSE_BUTTON_WIDTH, PAUSE_BUTTON_Y,      // BOTTOM RIGHT
+            PAUSE_BUTTON_X + PAUSE_BUTTON_WIDTH, PAUSE_BUTTON_Y + PAUSE_BUTTON_HEIGHT,  // TOP RIGHT
+            PAUSE_BUTTON_X, PAUSE_BUTTON_Y + PAUSE_BUTTON_HEIGHT      // TOP LEFT
+        };
+        
+        pauseButtonVAO = glGenVertexArrays();
+        pauseButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(pauseButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, pauseButtonVBO);
+        
+        FloatBuffer pauseVertexBuffer = BufferUtils.createFloatBuffer(pauseButtonVertices.length);
+        pauseVertexBuffer.put(pauseButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, pauseVertexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0) - 2D COORDINATES
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE TEXT GEOMETRY FOR GRID AND PAUSE ICONS
         createTextGeometry();
+        
+        // CREATE TRACKING BUTTONS
+        createTrackingButtons();
     }
     
     private void createTextGeometry() {
@@ -505,15 +702,62 @@ public class Window {
         glEnableVertexAttribArray(0);
         
         glBindVertexArray(0);
+        
+        // CREATE PAUSE/PLAY ICON
+        createPauseIcon();
+    }
+    
+    private void createPauseIcon() {
+        float pauseIconX = PAUSE_BUTTON_X + 12.0f; // CENTERED IN 40x40 BUTTON
+        float pauseIconY = PAUSE_BUTTON_Y + 10.0f;
+        float barWidth = 4.0f;
+        float barHeight = 20.0f;
+        float barGap = 6.0f;
+        
+        java.util.List<Float> pauseIconVertices = new java.util.ArrayList<>();
+        
+        // LEFT PAUSE BAR (AS TWO TRIANGLES)
+        float leftX = pauseIconX;
+        pauseIconVertices.addAll(java.util.Arrays.asList(
+            leftX, pauseIconY, leftX + barWidth, pauseIconY, leftX, pauseIconY + barHeight,
+            leftX + barWidth, pauseIconY, leftX + barWidth, pauseIconY + barHeight, leftX, pauseIconY + barHeight
+        ));
+        
+        // RIGHT PAUSE BAR (AS TWO TRIANGLES)
+        float rightX = pauseIconX + barWidth + barGap;
+        pauseIconVertices.addAll(java.util.Arrays.asList(
+            rightX, pauseIconY, rightX + barWidth, pauseIconY, rightX, pauseIconY + barHeight,
+            rightX + barWidth, pauseIconY, rightX + barWidth, pauseIconY + barHeight, rightX, pauseIconY + barHeight
+        ));
+        
+        // CONVERT TO ARRAY
+        float[] pauseIconArray = new float[pauseIconVertices.size()];
+        for (int i = 0; i < pauseIconVertices.size(); i++) {
+            pauseIconArray[i] = pauseIconVertices.get(i);
+        }
+        
+        pauseIconVAO = glGenVertexArrays();
+        pauseIconVBO = glGenBuffers();
+        
+        glBindVertexArray(pauseIconVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, pauseIconVBO);
+        
+        FloatBuffer pauseIconBuffer = BufferUtils.createFloatBuffer(pauseIconArray.length);
+        pauseIconBuffer.put(pauseIconArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, pauseIconBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
     }
     
     private void createOrbits() {
-        // CREATE MERCURY ORBIT - CIRCULAR PATH AT MERCURY'S DISTANCE
-        int orbitSegments = 128; // HIGH DETAIL FOR SMOOTH CIRCLE
-        float mercuryDistance = mercury.getDistanceFromSun();
+        int orbitSegments = 128; // HIGH DETAIL FOR SMOOTH CIRCLES
         
-        // CREATE CIRCLE VERTICES
-        java.util.List<Float> orbitVertices = new java.util.ArrayList<>();
+        // CREATE MERCURY ORBIT
+        float mercuryDistance = mercury.getDistanceFromSun();
+        java.util.List<Float> mercuryOrbitVertices = new java.util.ArrayList<>();
         
         for (int i = 0; i <= orbitSegments; i++) {
             float angle = (float) (2.0 * Math.PI * i / orbitSegments);
@@ -521,15 +765,15 @@ public class Window {
             float z = (float) (mercuryDistance * Math.sin(angle));
             float y = 0.0f; // ORBIT ON XZ PLANE
             
-            orbitVertices.add(x);
-            orbitVertices.add(y);
-            orbitVertices.add(z);
+            mercuryOrbitVertices.add(x);
+            mercuryOrbitVertices.add(y);
+            mercuryOrbitVertices.add(z);
         }
         
-        // CONVERT TO ARRAY
-        float[] orbitArray = new float[orbitVertices.size()];
-        for (int i = 0; i < orbitVertices.size(); i++) {
-            orbitArray[i] = orbitVertices.get(i);
+        // CONVERT MERCURY ORBIT TO ARRAY
+        float[] mercuryOrbitArray = new float[mercuryOrbitVertices.size()];
+        for (int i = 0; i < mercuryOrbitVertices.size(); i++) {
+            mercuryOrbitArray[i] = mercuryOrbitVertices.get(i);
         }
         
         orbitVAO = glGenVertexArrays();
@@ -538,9 +782,81 @@ public class Window {
         glBindVertexArray(orbitVAO);
         glBindBuffer(GL_ARRAY_BUFFER, orbitVBO);
         
-        FloatBuffer orbitBuffer = BufferUtils.createFloatBuffer(orbitArray.length);
-        orbitBuffer.put(orbitArray).flip();
-        glBufferData(GL_ARRAY_BUFFER, orbitBuffer, GL_STATIC_DRAW);
+        FloatBuffer mercuryOrbitBuffer = BufferUtils.createFloatBuffer(mercuryOrbitArray.length);
+        mercuryOrbitBuffer.put(mercuryOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, mercuryOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE VENUS ORBIT
+        float venusDistance = venus.getDistanceFromSun();
+        java.util.List<Float> venusOrbitVertices = new java.util.ArrayList<>();
+        
+        for (int i = 0; i <= orbitSegments; i++) {
+            float angle = (float) (2.0 * Math.PI * i / orbitSegments);
+            float x = (float) (venusDistance * Math.cos(angle));
+            float z = (float) (venusDistance * Math.sin(angle));
+            float y = 0.0f; // ORBIT ON XZ PLANE
+            
+            venusOrbitVertices.add(x);
+            venusOrbitVertices.add(y);
+            venusOrbitVertices.add(z);
+        }
+        
+        // CONVERT VENUS ORBIT TO ARRAY
+        float[] venusOrbitArray = new float[venusOrbitVertices.size()];
+        for (int i = 0; i < venusOrbitVertices.size(); i++) {
+            venusOrbitArray[i] = venusOrbitVertices.get(i);
+        }
+        
+        venusOrbitVAO = glGenVertexArrays();
+        venusOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(venusOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, venusOrbitVBO);
+        
+        FloatBuffer venusOrbitBuffer = BufferUtils.createFloatBuffer(venusOrbitArray.length);
+        venusOrbitBuffer.put(venusOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, venusOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE EARTH ORBIT
+        float earthDistance = earth.getDistanceFromSun();
+        java.util.List<Float> earthOrbitVertices = new java.util.ArrayList<>();
+        
+        for (int i = 0; i <= orbitSegments; i++) {
+            float angle = (float) (2.0 * Math.PI * i / orbitSegments);
+            float x = (float) (earthDistance * Math.cos(angle));
+            float z = (float) (earthDistance * Math.sin(angle));
+            float y = 0.0f; // ORBIT ON XZ PLANE
+            
+            earthOrbitVertices.add(x);
+            earthOrbitVertices.add(y);
+            earthOrbitVertices.add(z);
+        }
+        
+        // CONVERT EARTH ORBIT TO ARRAY
+        float[] earthOrbitArray = new float[earthOrbitVertices.size()];
+        for (int i = 0; i < earthOrbitVertices.size(); i++) {
+            earthOrbitArray[i] = earthOrbitVertices.get(i);
+        }
+        
+        earthOrbitVAO = glGenVertexArrays();
+        earthOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(earthOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, earthOrbitVBO);
+        
+        FloatBuffer earthOrbitBuffer = BufferUtils.createFloatBuffer(earthOrbitArray.length);
+        earthOrbitBuffer.put(earthOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, earthOrbitBuffer, GL_STATIC_DRAW);
         
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
         glEnableVertexAttribArray(0);
@@ -550,16 +866,42 @@ public class Window {
     
     private Matrix4f createMVPMatrix(int width, int height) {
         Matrix4f projection = new Matrix4f();
-        projection.perspective((float) Math.toRadians(45.0f), (float) width / height, 1.0f, 100000.0f); // INCREASED FAR PLANE FOR SOLAR SYSTEM SCALE
+        projection.perspective((float) Math.toRadians(55.0f), (float) width / height, 1.0f, 100000.0f); // WIDER FOV TO SEE MORE OF THE SOLAR SYSTEM
         
-        // CALCULATE LOOK-AT TARGET BASED ON CAMERA ROTATION (FPS STYLE)
-        float radPitch = (float) Math.toRadians(cameraPitch);
-        float radYaw = (float) Math.toRadians(cameraYaw);
+        // CALCULATE LOOK-AT TARGET BASED ON CAMERA MODE
+        float lookX, lookY, lookZ;
         
-        // CALCULATE WHERE THE CAMERA IS LOOKING
-        float lookX = cameraX + (float) (Math.cos(radPitch) * Math.sin(radYaw));
-        float lookY = cameraY - (float) Math.sin(radPitch);
-        float lookZ = cameraZ + (float) (Math.cos(radPitch) * Math.cos(radYaw));
+        if (cameraTrackingEnabled && !"NONE".equals(trackedObject)) {
+            // WHEN TRACKING, ALWAYS LOOK AT THE TRACKED OBJECT
+            Vector3f targetPosition = new Vector3f();
+            switch (trackedObject) {
+                case "SUN":
+                    targetPosition.set(0, 0, 0);
+                    break;
+                case "MERCURY":
+                    targetPosition.set(mercury.getPosition());
+                    break;
+                case "VENUS":
+                    targetPosition.set(venus.getPosition());
+                    break;
+                case "EARTH":
+                    targetPosition.set(earth.getPosition());
+                    break;
+                default:
+                    targetPosition.set(0, 0, 0);
+            }
+            lookX = targetPosition.x;
+            lookY = targetPosition.y;
+            lookZ = targetPosition.z;
+        } else {
+            // FREE CAMERA MODE - CALCULATE LOOK-AT TARGET BASED ON CAMERA ROTATION (FPS STYLE)
+            float radPitch = (float) Math.toRadians(cameraPitch);
+            float radYaw = (float) Math.toRadians(cameraYaw);
+            
+            lookX = cameraX + (float) (Math.cos(radPitch) * Math.sin(radYaw));
+            lookY = cameraY - (float) Math.sin(radPitch);
+            lookZ = cameraZ + (float) (Math.cos(radPitch) * Math.cos(radYaw));
+        }
         
         Matrix4f view = new Matrix4f();
         view.lookAt(cameraX, cameraY, cameraZ, lookX, lookY, lookZ, 0, 1, 0);
@@ -580,6 +922,13 @@ public class Window {
     public void update() {
         // UPDATE CAMERA MOVEMENT BASED ON PRESSED KEYS
         updateCameraMovement();
+        updateCameraTracking();
+        
+        // UPDATE ORBITAL POSITIONS BASED ON TIME
+        updateOrbitalMotion();
+        
+        // UPDATE CAMERA TRACKING IF ENABLED
+        updateCameraTracking();
         
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
@@ -597,7 +946,7 @@ public class Window {
             mvpMatrix.get(matrixBuffer);
             glUniformMatrix4fv(gridMvpLocation, false, matrixBuffer);
             glBindVertexArray(gridVAO);
-            glDrawArrays(GL_LINES, 0, 404); // 101 * 4 VERTICES (UPDATED FOR NEW GRID SIZE)
+            glDrawArrays(GL_LINES, 0, 804); // 201 * 4 VERTICES (UPDATED FOR EARTH ORBIT COVERAGE)
         }
         
         // RENDER ORBITAL PATHS
@@ -605,13 +954,31 @@ public class Window {
         FloatBuffer orbitMatrixBuffer = BufferUtils.createFloatBuffer(16);
         mvpMatrix.get(orbitMatrixBuffer);
         glUniformMatrix4fv(gridMvpLocation, false, orbitMatrixBuffer);
+        
+        // RENDER MERCURY ORBIT
         glBindVertexArray(orbitVAO);
+        glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
+        
+        // RENDER VENUS ORBIT
+        glBindVertexArray(venusOrbitVAO);
+        glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
+        
+        // RENDER EARTH ORBIT
+        glBindVertexArray(earthOrbitVAO);
         glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
         
         // RENDER SUN
         glUseProgram(sunShaderProgram);
+        
+        // CREATE SUN TRANSFORMATION MATRIX WITH ROTATION
+        Matrix4f sunModel = new Matrix4f();
+        sunModel.rotateY(sun.getRotationAngle()); // ROTATE AROUND Y-AXIS
+        
+        Matrix4f sunMVP = new Matrix4f();
+        mvpMatrix.mul(sunModel, sunMVP);
+        
         FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
-        mvpMatrix.get(matrixBuffer);
+        sunMVP.get(matrixBuffer);
         glUniformMatrix4fv(sunMvpLocation, false, matrixBuffer);
         glUniform3f(sunColorLocation, sun.getColor().x, sun.getColor().y, sun.getColor().z);
         
@@ -623,21 +990,49 @@ public class Window {
         
         // CREATE MERCURY TRANSFORMATION MATRIX
         Matrix4f projection = new Matrix4f();
-        projection.perspective((float) Math.toRadians(45.0f), (float) width[0] / height[0], 1.0f, 100000.0f);
+        projection.perspective((float) Math.toRadians(55.0f), (float) width[0] / height[0], 1.0f, 100000.0f);
         
-        // CALCULATE LOOK-AT TARGET BASED ON CAMERA ROTATION (FPS STYLE)
-        float radPitch = (float) Math.toRadians(cameraPitch);
-        float radYaw = (float) Math.toRadians(cameraYaw);
+        // CALCULATE LOOK-AT TARGET BASED ON CAMERA MODE
+        float lookX, lookY, lookZ;
         
-        float lookX = cameraX + (float) (Math.cos(radPitch) * Math.sin(radYaw));
-        float lookY = cameraY - (float) Math.sin(radPitch);
-        float lookZ = cameraZ + (float) (Math.cos(radPitch) * Math.cos(radYaw));
+        if (cameraTrackingEnabled && !"NONE".equals(trackedObject)) {
+            // WHEN TRACKING, ALWAYS LOOK AT THE TRACKED OBJECT
+            Vector3f targetPosition = new Vector3f();
+            switch (trackedObject) {
+                case "SUN":
+                    targetPosition.set(0, 0, 0);
+                    break;
+                case "MERCURY":
+                    targetPosition.set(mercury.getPosition());
+                    break;
+                case "VENUS":
+                    targetPosition.set(venus.getPosition());
+                    break;
+                case "EARTH":
+                    targetPosition.set(earth.getPosition());
+                    break;
+                default:
+                    targetPosition.set(0, 0, 0);
+            }
+            lookX = targetPosition.x;
+            lookY = targetPosition.y;
+            lookZ = targetPosition.z;
+        } else {
+            // FREE CAMERA MODE - CALCULATE LOOK-AT TARGET BASED ON CAMERA ROTATION (FPS STYLE)
+            float radPitch = (float) Math.toRadians(cameraPitch);
+            float radYaw = (float) Math.toRadians(cameraYaw);
+            
+            lookX = cameraX + (float) (Math.cos(radPitch) * Math.sin(radYaw));
+            lookY = cameraY - (float) Math.sin(radPitch);
+            lookZ = cameraZ + (float) (Math.cos(radPitch) * Math.cos(radYaw));
+        }
         
         Matrix4f view = new Matrix4f();
         view.lookAt(cameraX, cameraY, cameraZ, lookX, lookY, lookZ, 0, 1, 0);
         
         Matrix4f mercuryModel = new Matrix4f();
         mercuryModel.translate(mercury.getPosition()); // TRANSLATE TO MERCURY'S ORBIT POSITION
+        mercuryModel.rotateY(mercury.getRotationAngle()); // ADD PLANET ROTATION
         
         Matrix4f mercuryMVP = new Matrix4f();
         projection.mul(view, mercuryMVP);
@@ -650,6 +1045,46 @@ public class Window {
         
         glBindVertexArray(mercury.getVAO());
         glDrawElements(GL_TRIANGLES, mercury.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        
+        // RENDER VENUS
+        glUseProgram(sunShaderProgram); // SAME SHADER AS SUN FOR NOW
+        
+        // CREATE VENUS TRANSFORMATION MATRIX
+        Matrix4f venusModel = new Matrix4f();
+        venusModel.translate(venus.getPosition()); // TRANSLATE TO VENUS'S ORBIT POSITION
+        venusModel.rotateY(venus.getRotationAngle()); // ADD PLANET ROTATION (RETROGRADE)
+        
+        Matrix4f venusMVP = new Matrix4f();
+        projection.mul(view, venusMVP);
+        venusMVP.mul(venusModel);
+        
+        FloatBuffer matrixBufferVenus = BufferUtils.createFloatBuffer(16);
+        venusMVP.get(matrixBufferVenus);
+        glUniformMatrix4fv(sunMvpLocation, false, matrixBufferVenus);
+        glUniform3f(sunColorLocation, venus.getColor().x, venus.getColor().y, venus.getColor().z);
+        
+        glBindVertexArray(venus.getVAO());
+        glDrawElements(GL_TRIANGLES, venus.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        
+        // RENDER EARTH
+        glUseProgram(sunShaderProgram); // SAME SHADER AS SUN FOR NOW
+        
+        // CREATE EARTH TRANSFORMATION MATRIX
+        Matrix4f earthModel = new Matrix4f();
+        earthModel.translate(earth.getPosition()); // TRANSLATE TO EARTH'S ORBIT POSITION
+        earthModel.rotateY(earth.getRotationAngle()); // ADD PLANET ROTATION (24 HOURS)
+        
+        Matrix4f earthMVP = new Matrix4f();
+        projection.mul(view, earthMVP);
+        earthMVP.mul(earthModel);
+        
+        FloatBuffer matrixBufferEarth = BufferUtils.createFloatBuffer(16);
+        earthMVP.get(matrixBufferEarth);
+        glUniformMatrix4fv(sunMvpLocation, false, matrixBufferEarth);
+        glUniform3f(sunColorLocation, earth.getColor().x, earth.getColor().y, earth.getColor().z);
+        
+        glBindVertexArray(earth.getVAO());
+        glDrawElements(GL_TRIANGLES, earth.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
         
         // RENDER UI (2D OVERLAY)
         renderUI(width[0], height[0]);
@@ -670,6 +1105,12 @@ public class Window {
         glDeleteVertexArrays(mercury.getVAO());
         glDeleteBuffers(mercury.getVBO());
         glDeleteBuffers(mercury.getEBO());
+        glDeleteVertexArrays(venus.getVAO());
+        glDeleteBuffers(venus.getVBO());
+        glDeleteBuffers(venus.getEBO());
+        glDeleteVertexArrays(earth.getVAO());
+        glDeleteBuffers(earth.getVBO());
+        glDeleteBuffers(earth.getEBO());
         glDeleteVertexArrays(uiVAO);
         glDeleteBuffers(uiVBO);
         glDeleteVertexArrays(textVAO);
@@ -693,6 +1134,67 @@ public class Window {
         // CHECK IF POINT IS INSIDE BUTTON BOUNDS
         return mouseX >= BUTTON_X && mouseX <= BUTTON_X + BUTTON_WIDTH &&
                adjustedY >= BUTTON_Y && adjustedY <= BUTTON_Y + BUTTON_HEIGHT;
+    }
+    
+    private boolean isPointInPauseButton(double mouseX, double mouseY) {
+        // GET WINDOW SIZE FOR COORDINATE CONVERSION
+        int[] width = new int[1];
+        int[] height = new int[1];
+        glfwGetWindowSize(windowHandle, width, height);
+        
+        // CONVERT GLFW COORDINATES (TOP-LEFT ORIGIN) TO BUTTON COORDINATES (BOTTOM-LEFT ORIGIN)
+        double adjustedY = height[0] - mouseY;
+        
+        // CHECK IF POINT IS INSIDE PAUSE BUTTON BOUNDS
+        return mouseX >= PAUSE_BUTTON_X && mouseX <= PAUSE_BUTTON_X + PAUSE_BUTTON_WIDTH &&
+               adjustedY >= PAUSE_BUTTON_Y && adjustedY <= PAUSE_BUTTON_Y + PAUSE_BUTTON_HEIGHT;
+    }
+    
+    private boolean isPointInTrackingButton(double mouseX, double mouseY, String buttonType) {
+        int[] width = new int[1];
+        int[] height = new int[1];
+        glfwGetWindowSize(windowHandle, width, height);
+        
+        // CONVERT GLFW COORDINATES (TOP-LEFT ORIGIN) TO BUTTON COORDINATES (BOTTOM-LEFT ORIGIN)
+        double adjustedY = height[0] - mouseY;
+        
+        // DETERMINE BUTTON X POSITION BASED ON TYPE
+        float buttonX;
+        switch (buttonType) {
+            case "SUN":
+                buttonX = SUN_BUTTON_X;
+                break;
+            case "MERCURY":
+                buttonX = MERCURY_BUTTON_X;
+                break;
+            case "VENUS":
+                buttonX = VENUS_BUTTON_X;
+                break;
+            case "EARTH":
+                buttonX = EARTH_BUTTON_X;
+                break;
+            default:
+                return false;
+        }
+        
+        // CHECK IF POINT IS INSIDE TRACKING BUTTONS BOUNDS
+        return mouseX >= buttonX && mouseX <= buttonX + TRACK_BUTTON_WIDTH &&
+               adjustedY >= TRACK_BUTTON_Y && adjustedY <= TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT;
+    }
+    
+    private void setTrackedObject(String objectName) {
+        if (trackedObject.equals(objectName)) {
+            // CLICKING THE SAME BUTTON TOGGLES TRACKING OFF
+            trackedObject = "NONE";
+            cameraTrackingEnabled = false;
+            System.out.println("Camera tracking disabled");
+        } else {
+            // CLICKING A DIFFERENT BUTTON ENABLES TRACKING FOR THAT OBJECT
+            trackedObject = objectName;
+            cameraTrackingEnabled = true;
+            trackingZoomDistance = 1.0f; // RESET ZOOM TO DEFAULT WHEN SWITCHING TARGETS
+            System.out.println("Camera now tracking " + objectName);
+        }
     }
     
     private void renderUI(int windowWidth, int windowHeight) {
@@ -728,8 +1230,252 @@ public class Window {
         glBindVertexArray(textVAO);
         glDrawArrays(GL_TRIANGLES, 0, 54); // 9 SQUARES * 6 VERTICES = 54 VERTICES
         
+        // RENDER PAUSE BUTTON
+        if (orbitalMotionPaused) {
+            glUniform3f(uiColorLocation, 0.8f, 0.2f, 0.2f); // RED WHEN PAUSED
+        } else {
+            glUniform3f(uiColorLocation, 0.2f, 0.8f, 0.2f); // GREEN WHEN PLAYING
+        }
+        
+        glBindVertexArray(pauseButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4); // DRAW PAUSE BUTTON AS QUAD
+        
+        // RENDER PAUSE ICON
+        glUniform3f(uiColorLocation, 1.0f, 1.0f, 1.0f); // WHITE ICON
+        glBindVertexArray(pauseIconVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 12); // 2 BARS * 6 VERTICES = 12 VERTICES
+        
+        // RENDER TRACKING BUTTONS
+        renderTrackingButtons();
+        
         // RE-ENABLE DEPTH TESTING
         glEnable(GL_DEPTH_TEST);
         glDisable(GL_BLEND);
+    }
+    
+    private void updateOrbitalMotion() {
+        // SKIP UPDATES IF PAUSED
+        if (orbitalMotionPaused) {
+            return;
+        }
+        
+        // CALCULATE DELTA TIME
+        long currentTime = System.nanoTime();
+        float deltaTime = (currentTime - lastTime) / 1_000_000_000.0f; // CONVERT TO SECONDS
+        lastTime = currentTime;
+        
+        // APPLY TIME ACCELERATION
+        deltaTime *= TIME_ACCELERATION;
+        
+        // UPDATE PLANETARY POSITIONS AND ROTATIONS
+        sun.updateRotation(deltaTime);
+        mercury.updateOrbitalPosition(deltaTime);
+        venus.updateOrbitalPosition(deltaTime);
+        earth.updateOrbitalPosition(deltaTime);
+    }
+    
+    private void createTrackingButtons() {
+        // SUN BUTTON
+        float[] sunButtonVertices = {
+            SUN_BUTTON_X, TRACK_BUTTON_Y,                           // BOTTOM LEFT
+            SUN_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y,      // BOTTOM RIGHT
+            SUN_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT,  // TOP RIGHT
+            SUN_BUTTON_X, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT      // TOP LEFT
+        };
+        
+        sunButtonVAO = glGenVertexArrays();
+        sunButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(sunButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, sunButtonVBO);
+        
+        FloatBuffer sunBuffer = BufferUtils.createFloatBuffer(sunButtonVertices.length);
+        sunBuffer.put(sunButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, sunBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // MERCURY BUTTON
+        float[] mercuryButtonVertices = {
+            MERCURY_BUTTON_X, TRACK_BUTTON_Y,                           // BOTTOM LEFT
+            MERCURY_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y,      // BOTTOM RIGHT
+            MERCURY_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT,  // TOP RIGHT
+            MERCURY_BUTTON_X, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT      // TOP LEFT
+        };
+        
+        mercuryButtonVAO = glGenVertexArrays();
+        mercuryButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(mercuryButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, mercuryButtonVBO);
+        
+        FloatBuffer mercuryBuffer = BufferUtils.createFloatBuffer(mercuryButtonVertices.length);
+        mercuryBuffer.put(mercuryButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, mercuryBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // VENUS BUTTON
+        float[] venusButtonVertices = {
+            VENUS_BUTTON_X, TRACK_BUTTON_Y,                           // BOTTOM LEFT
+            VENUS_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y,      // BOTTOM RIGHT
+            VENUS_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT,  // TOP RIGHT
+            VENUS_BUTTON_X, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT      // TOP LEFT
+        };
+        
+        venusButtonVAO = glGenVertexArrays();
+        venusButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(venusButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, venusButtonVBO);
+        
+        FloatBuffer venusBuffer = BufferUtils.createFloatBuffer(venusButtonVertices.length);
+        venusBuffer.put(venusButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, venusBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // EARTH BUTTON
+        float[] earthButtonVertices = {
+            EARTH_BUTTON_X, TRACK_BUTTON_Y,                           // BOTTOM LEFT
+            EARTH_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y,      // BOTTOM RIGHT
+            EARTH_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT,  // TOP RIGHT
+            EARTH_BUTTON_X, TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT      // TOP LEFT
+        };
+        
+        earthButtonVAO = glGenVertexArrays();
+        earthButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(earthButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, earthButtonVBO);
+        
+        FloatBuffer earthBuffer = BufferUtils.createFloatBuffer(earthButtonVertices.length);
+        earthBuffer.put(earthButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, earthBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE BUTTON LABELS (PLACEHOLDER FOR FUTURE TEXT RENDERING)
+        createTrackingButtonLabels();
+    }
+    
+    private void createTrackingButtonLabels() {
+        // CREATE SIMPLE TEXT LABELS FOR EACH TRACKING BUTTON
+        // SUN LABEL - "S"
+        float sunLabelX = SUN_BUTTON_X + TRACK_BUTTON_WIDTH / 2 - 3;
+        float sunLabelY = TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT / 2 - 4;
+        
+        // MERCURY LABEL - "M"  
+        float mercuryLabelX = MERCURY_BUTTON_X + TRACK_BUTTON_WIDTH / 2 - 3;
+        float mercuryLabelY = TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT / 2 - 4;
+        
+        // VENUS LABEL - "V"
+        float venusLabelX = VENUS_BUTTON_X + TRACK_BUTTON_WIDTH / 2 - 3;
+        float venusLabelY = TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT / 2 - 4;
+        
+        // EARTH LABEL - "E"
+        float earthLabelX = EARTH_BUTTON_X + TRACK_BUTTON_WIDTH / 2 - 3;
+        float earthLabelY = TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT / 2 - 4;
+        
+        // FOR SIMPLICITY, WE'LL CREATE LETTER SHAPES USING SMALL RECTANGLES
+        // THESE WILL BE RENDERED AS WHITE TEXT OVER THE BUTTONS
+        System.out.println("Tracking buttons created: Sun (S), Mercury (M), Venus (V), Earth (E)");
+    }
+    
+    private void updateCameraTracking() {
+        if (!cameraTrackingEnabled || "NONE".equals(trackedObject)) {
+            return;
+        }
+        
+        Vector3f targetPosition = new Vector3f();
+        float viewingDistance = 2000.0f; // DEFAULT VIEWING DISTANCE
+        
+        // GET TARGET POSITION AND APPROPRIATE VIEWING DISTANCE
+        switch (trackedObject) {
+            case "SUN":
+                targetPosition.set(0, 0, 0); // SUN IS AT ORIGIN
+                viewingDistance = 400.0f; // CLOSER BASE DISTANCE FOR SUN
+                break;
+            case "MERCURY":
+                targetPosition.set(mercury.getPosition());
+                viewingDistance = 150.0f; // CLOSER FOR SMALL PLANET
+                break;
+            case "VENUS":
+                targetPosition.set(venus.getPosition());
+                viewingDistance = 200.0f; // CLOSER FOR MEDIUM PLANET
+                break;
+            case "EARTH":
+                targetPosition.set(earth.getPosition());
+                viewingDistance = 800.0f; // LARGER DISTANCE FOR EARTH SINCE IT'S A BIGGER PLANET
+                break;
+            default:
+                return;
+        }
+        
+        // APPLY ZOOM MULTIPLIER
+        viewingDistance *= trackingZoomDistance;
+        
+        // CALCULATE CAMERA POSITION USING SPHERICAL COORDINATES AROUND TARGET
+        // USE CURRENT YAW AND PITCH TO MAINTAIN ORBITAL CAMERA POSITION
+        float x = targetPosition.x + viewingDistance * (float) (Math.cos(cameraPitch) * Math.sin(cameraYaw));
+        float y = targetPosition.y + viewingDistance * (float) Math.sin(cameraPitch);
+        float z = targetPosition.z + viewingDistance * (float) (Math.cos(cameraPitch) * Math.cos(cameraYaw));
+        
+        cameraX = x;
+        cameraY = y;
+        cameraZ = z;
+        
+        // CAMERA ALWAYS LOOKS AT THE TARGET (NO NEED TO RECALCULATE YAW/PITCH)
+        // THE YAW/PITCH VALUES ARE USED FOR POSITIONING, NOT LOOKING DIRECTION
+    }
+    
+    private void renderTrackingButtons() {
+        // SUN BUTTON
+        if ("SUN".equals(trackedObject)) {
+            glUniform3f(uiColorLocation, 1.0f, 0.8f, 0.2f); // GOLD WHEN TRACKING SUN
+        } else {
+            glUniform3f(uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
+        }
+        glBindVertexArray(sunButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // MERCURY BUTTON
+        if ("MERCURY".equals(trackedObject)) {
+            glUniform3f(uiColorLocation, 0.7f, 0.7f, 0.7f); // LIGHT GRAY WHEN TRACKING MERCURY
+        } else {
+            glUniform3f(uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
+        }
+        glBindVertexArray(mercuryButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // VENUS BUTTON
+        if ("VENUS".equals(trackedObject)) {
+            glUniform3f(uiColorLocation, 1.0f, 0.6f, 0.0f); // ORANGE WHEN TRACKING VENUS
+        } else {
+            glUniform3f(uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
+        }
+        glBindVertexArray(venusButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // EARTH BUTTON
+        if ("EARTH".equals(trackedObject)) {
+            glUniform3f(uiColorLocation, 0.2f, 0.6f, 1.0f); // BLUE WHEN TRACKING EARTH
+        } else {
+            glUniform3f(uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
+        }
+        glBindVertexArray(earthButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
 }

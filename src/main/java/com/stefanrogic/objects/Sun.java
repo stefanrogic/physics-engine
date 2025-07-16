@@ -12,10 +12,15 @@ public class Sun {
     private static final float SUN_RADIUS = 69.6f; // SCALED FOR BETTER PLANET VISIBILITY
     private static final int SPHERE_DETAIL = 32; // GOOD BALANCE OF DETAIL VS PERFORMANCE
     
+    // ROTATION DATA
+    private static final float ROTATION_PERIOD = 27.0f; // SUN'S ROTATION PERIOD IN EARTH DAYS (AT EQUATOR)
+    private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
+    
     public Sun() {
         this.position = new Vector3f(0.0f, 0.0f, 0.0f); // CENTER OF THE WORLD
         this.color = new Vector3f(1.0f, 0.8f, 0.0f); // YELLOW-ORANGE SUN COLOR
         this.sphere = new Sphere(SUN_RADIUS, SPHERE_DETAIL, SPHERE_DETAIL);
+        this.rotationAngle = 0.0f; // START WITH NO ROTATION
         
         setupBuffers();
     }
@@ -39,4 +44,22 @@ public class Sun {
     public void setVAO(int VAO) { this.VAO = VAO; }
     public void setVBO(int VBO) { this.VBO = VBO; }
     public void setEBO(int EBO) { this.EBO = EBO; }
+    
+    // UPDATE SUN'S ROTATION BASED ON TIME
+    public void updateRotation(float deltaTime) {
+        // CALCULATE ROTATIONAL ANGULAR VELOCITY (RADIANS PER SECOND)
+        float rotationalAngularVelocity = (float) (2.0 * Math.PI) / (ROTATION_PERIOD * 24.0f * 3600.0f); // CONVERT DAYS TO SECONDS
+        
+        // UPDATE ROTATION ANGLE
+        rotationAngle += rotationalAngularVelocity * deltaTime;
+        
+        // KEEP ANGLE IN 0-2π RANGE
+        if (rotationAngle > 2.0 * Math.PI) {
+            rotationAngle -= (float) (2.0 * Math.PI);
+        }
+    }
+    
+    // GETTERS FOR ROTATION DATA
+    public float getRotationPeriod() { return ROTATION_PERIOD; }
+    public float getRotationAngle() { return rotationAngle; }
 }
