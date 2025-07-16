@@ -32,6 +32,13 @@ public class AstronomicalCalculator {
     private static final double EARTH_LONGITUDE_OF_PERIHELION = 102.938; // DEGREES
     private static final double EARTH_MEAN_MOTION = 0.98560028; // DEGREES PER DAY
     
+    // MARS ORBITAL ELEMENTS
+    private static final double MARS_SEMI_MAJOR_AXIS = 1.523679; // AU
+    private static final double MARS_ECCENTRICITY = 0.093412;
+    private static final double MARS_MEAN_LONGITUDE = 355.433; // DEGREES AT J2000.0
+    private static final double MARS_LONGITUDE_OF_PERIHELION = 336.041; // DEGREES
+    private static final double MARS_MEAN_MOTION = 0.52403840; // DEGREES PER DAY
+    
     /**
      * CALCULATE CURRENT ORBITAL ANGLE FOR A PLANET BASED ON CURRENT DATE
      */
@@ -56,6 +63,11 @@ public class AstronomicalCalculator {
                 meanLongitude = EARTH_MEAN_LONGITUDE;
                 longitudeOfPerihelion = EARTH_LONGITUDE_OF_PERIHELION;
                 meanMotion = EARTH_MEAN_MOTION;
+                break;
+            case "MARS":
+                meanLongitude = MARS_MEAN_LONGITUDE;
+                longitudeOfPerihelion = MARS_LONGITUDE_OF_PERIHELION;
+                meanMotion = MARS_MEAN_MOTION;
                 break;
             default:
                 throw new IllegalArgumentException("Unknown planet: " + planetName);
