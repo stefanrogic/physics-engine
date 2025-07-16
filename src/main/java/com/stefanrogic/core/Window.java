@@ -18,15 +18,24 @@ import com.stefanrogic.objects.Sun;
 import com.stefanrogic.objects.Mercury;
 import com.stefanrogic.objects.Venus;
 import com.stefanrogic.objects.Earth;
+import com.stefanrogic.objects.Moon;
+import com.stefanrogic.objects.Mars;
+import com.stefanrogic.objects.Phobos;
+import com.stefanrogic.objects.Deimos;
 
 public class Window {
     private long windowHandle;
-    private int gridShaderProgram, sunShaderProgram;
+    private int gridShaderProgram, sunShaderProgram, planetShaderProgram;
     private int gridVAO, gridVBO;
     private int orbitVAO, orbitVBO; // FOR ORBITAL PATHS
     private int venusOrbitVAO, venusOrbitVBO; // FOR VENUS ORBIT
     private int earthOrbitVAO, earthOrbitVBO; // FOR EARTH ORBIT
+    private int moonOrbitVAO, moonOrbitVBO; // FOR MOON ORBIT
+    private int marsOrbitVAO, marsOrbitVBO; // FOR MARS ORBIT
+    private int phobosOrbitVAO, phobosOrbitVBO; // FOR PHOBOS ORBIT
+    private int deimosOrbitVAO, deimosOrbitVBO; // FOR DEIMOS ORBIT
     private int gridMvpLocation, sunMvpLocation, sunColorLocation;
+    private int planetMvpLocation, planetColorLocation, planetSunPosLocation, planetModelLocation;
     
     // CAMERA SETTINGS - FPS STYLE
     private float cameraX = 0.0f;
@@ -61,7 +70,7 @@ public class Window {
     
     // CAMERA TRACKING
     private boolean cameraTrackingEnabled = false;
-    private String trackedObject = "NONE"; // "SUN", "MERCURY", "VENUS", "EARTH", "NONE"
+    private String trackedObject = "NONE"; // "SUN", "MERCURY", "VENUS", "EARTH", "MARS", "NONE"
     
     // UI ELEMENTS
     private int uiShaderProgram;
@@ -75,6 +84,7 @@ public class Window {
     private int mercuryButtonVAO, mercuryButtonVBO;
     private int venusButtonVAO, venusButtonVBO;
     private int earthButtonVAO, earthButtonVBO;
+    private int marsButtonVAO, marsButtonVBO;
     private int uiMvpLocation, uiColorLocation;
     
     // UI BUTTON COORDINATES - GRID BUTTON
@@ -97,16 +107,23 @@ public class Window {
     private final float MERCURY_BUTTON_X = 55.0f;
     private final float VENUS_BUTTON_X = 90.0f;
     private final float EARTH_BUTTON_X = 125.0f;
+    // MARS SYSTEM BUTTONS (SECOND ROW) - REMOVED INDIVIDUAL MOON BUTTONS TO REDUCE CLUTTER
+    private final float TRACK_BUTTON_Y2 = 100.0f; // SECOND ROW
+    private final float MARS_BUTTON_X = 20.0f;
     
     // SUN AND PLANETS
     private Sun sun;
     private Mercury mercury;
     private Venus venus;
     private Earth earth;
+    private Moon moon;
+    private Mars mars;
+    private Phobos phobos;
+    private Deimos deimos;
     
     // TIME TRACKING FOR ORBITAL MOTION
     private long lastTime;
-    private static final float TIME_ACCELERATION = 86400.0f; // 1 SECOND = 1 DAY (SPEED UP FACTOR)
+    private static final float TIME_ACCELERATION = 1.0f; // REAL TIME - NO ACCELERATION
     
     // TRACKING CAMERA ZOOM DISTANCE
     private float trackingZoomDistance = 1.0f; // MULTIPLIER FOR VIEWING DISTANCE
@@ -147,6 +164,10 @@ public class Window {
         createMercury();
         createVenus();
         createEarth();
+        createMoon(); // CREATE MOON AFTER EARTH
+        createMars(); // CREATE MARS AFTER EARTH SYSTEM
+        createPhobos(); // CREATE PHOBOS AFTER MARS
+        createDeimos(); // CREATE DEIMOS AFTER MARS
         createOrbits(); // CREATE ORBITS AFTER PLANETS
         createUI();
         
@@ -218,6 +239,9 @@ public class Window {
                     }
                     else if (isPointInTrackingButton(xpos[0], ypos[0], "EARTH")) {
                         setTrackedObject("EARTH");
+                    }
+                    else if (isPointInTrackingButton(xpos[0], ypos[0], "MARS")) {
+                        setTrackedObject("MARS");
                     } else {
                         // START CAMERA ROTATION
                         mousePressed = true;
@@ -378,6 +402,74 @@ public class Window {
         sunMvpLocation = glGetUniformLocation(sunShaderProgram, "mvpMatrix");
         sunColorLocation = glGetUniformLocation(sunShaderProgram, "sunColor");
         
+        // PLANET LIGHTING SHADER - RECEIVES LIGHT FROM SUN
+        String planetVertexShader = """
+            #version 330 core
+            layout (location = 0) in vec3 aPos;
+            layout (location = 1) in vec3 aNormal;
+            
+            uniform mat4 mvpMatrix;
+            uniform mat4 modelMatrix;
+            uniform vec3 sunPosition;
+            
+            out vec3 fragPos;
+            out vec3 normal;
+            out vec3 sunDir;
+            
+            void main() {
+                // TRANSFORM VERTEX TO WORLD SPACE
+                vec4 worldPos = modelMatrix * vec4(aPos, 1.0);
+                fragPos = worldPos.xyz;
+                
+                // TRANSFORM NORMAL TO WORLD SPACE (FOR PROPER LIGHTING)
+                normal = normalize(mat3(modelMatrix) * aNormal);
+                
+                // CALCULATE SUN DIRECTION IN WORLD SPACE
+                // Sun is at origin (0,0,0), planet is at its orbital position
+                sunDir = normalize(sunPosition - fragPos);
+                
+                gl_Position = mvpMatrix * vec4(aPos, 1.0);
+            }
+            """;
+        
+        String planetFragmentShader = """
+            #version 330 core
+            in vec3 fragPos;
+            in vec3 normal;
+            in vec3 sunDir;
+            
+            uniform vec3 planetColor;
+            
+            out vec4 FragColor;
+            
+            void main() {
+                // NORMALIZE THE NORMAL VECTOR
+                vec3 norm = normalize(normal);
+                
+                // CALCULATE BASIC DIFFUSE LIGHTING
+                // Since planets are spheres, the sun direction should work with surface normals
+                float NdotL = dot(norm, sunDir);
+                float diffuse = max(NdotL, 0.0);
+                
+                // ADD AMBIENT LIGHTING SO DARK SIDE IS STILL VISIBLE
+                float ambient = 0.2;
+                
+                // COMBINE LIGHTING (80% DIFFUSE + 20% AMBIENT)
+                float finalLighting = ambient + diffuse * 0.8;
+                
+                // APPLY LIGHTING TO PLANET COLOR
+                vec3 result = planetColor * finalLighting;
+                FragColor = vec4(result, 1.0);
+            }
+            """;
+        
+        // COMPILE PLANET SHADERS
+        planetShaderProgram = createShaderProgram(planetVertexShader, planetFragmentShader);
+        planetMvpLocation = glGetUniformLocation(planetShaderProgram, "mvpMatrix");
+        planetColorLocation = glGetUniformLocation(planetShaderProgram, "planetColor");
+        planetSunPosLocation = glGetUniformLocation(planetShaderProgram, "sunPosition");
+        planetModelLocation = glGetUniformLocation(planetShaderProgram, "modelMatrix");
+        
         // COMPILE UI SHADERS (2D OVERLAY)
         String uiVertexShader = """
             #version 330 core
@@ -423,8 +515,8 @@ public class Window {
     }
     
     private void createGrid() {
-        // EXPANDED GRID TO COVER EARTH'S ORBIT (EARTH AT ~15,000 UNITS)
-        int gridSize = 200; // EVEN LARGER GRID TO COVER EARTH'S ORBIT
+        // EXPANDED GRID TO COVER MARS ORBIT (MARS AT ~22,790 UNITS)
+        int gridSize = 300; // MUCH LARGER GRID TO COVER MARS' ORBIT
         float spacing = 200.0f; // SPACING (2 MILLION KM PER GRID SQUARE)
         int numLines = (gridSize + 1) * 4;
         float[] vertices = new float[numLines * 3];
@@ -529,6 +621,10 @@ public class Window {
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
         glEnableVertexAttribArray(0);
         
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
+        
         glBindVertexArray(0);
     }
     
@@ -562,6 +658,10 @@ public class Window {
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
         glEnableVertexAttribArray(0);
         
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
+        
         glBindVertexArray(0);
     }
     
@@ -594,6 +694,158 @@ public class Window {
         // POSITION ATTRIBUTE (LOCATION = 0)
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
         glEnableVertexAttribArray(0);
+        
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
+        
+        glBindVertexArray(0);
+    }
+    
+    private void createMoon() {
+        moon = new Moon(earth); // PASS EARTH REFERENCE FOR ORBITAL CALCULATIONS
+        
+        // CREATE VAO, VBO, EBO FOR MOON
+        int VAO = glGenVertexArrays();
+        int VBO = glGenBuffers();
+        int EBO = glGenBuffers();
+        
+        moon.setVAO(VAO);
+        moon.setVBO(VBO);
+        moon.setEBO(EBO);
+        
+        glBindVertexArray(VAO);
+        
+        // UPLOAD VERTEX DATA
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(moon.getSphere().getVertices().length);
+        vertexBuffer.put(moon.getSphere().getVertices()).flip();
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+        
+        // UPLOAD INDEX DATA
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        IntBuffer indexBuffer = BufferUtils.createIntBuffer(moon.getSphere().getIndices().length);
+        indexBuffer.put(moon.getSphere().getIndices()).flip();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
+        
+        glBindVertexArray(0);
+    }
+    
+    private void createMars() {
+        mars = new Mars();
+        
+        // CREATE VAO, VBO, EBO FOR MARS
+        int VAO = glGenVertexArrays();
+        int VBO = glGenBuffers();
+        int EBO = glGenBuffers();
+        
+        mars.setVAO(VAO);
+        mars.setVBO(VBO);
+        mars.setEBO(EBO);
+        
+        glBindVertexArray(VAO);
+        
+        // UPLOAD VERTEX DATA
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(mars.getSphere().getVertices().length);
+        vertexBuffer.put(mars.getSphere().getVertices()).flip();
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+        
+        // UPLOAD INDEX DATA
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        IntBuffer indexBuffer = BufferUtils.createIntBuffer(mars.getSphere().getIndices().length);
+        indexBuffer.put(mars.getSphere().getIndices()).flip();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
+        
+        glBindVertexArray(0);
+    }
+    
+    private void createPhobos() {
+        phobos = new Phobos(mars); // PASS MARS REFERENCE FOR ORBITAL CALCULATIONS
+        
+        // CREATE VAO, VBO, EBO FOR PHOBOS
+        int VAO = glGenVertexArrays();
+        int VBO = glGenBuffers();
+        int EBO = glGenBuffers();
+        
+        phobos.setVAO(VAO);
+        phobos.setVBO(VBO);
+        phobos.setEBO(EBO);
+        
+        glBindVertexArray(VAO);
+        
+        // UPLOAD VERTEX DATA
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(phobos.getSphere().getVertices().length);
+        vertexBuffer.put(phobos.getSphere().getVertices()).flip();
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+        
+        // UPLOAD INDEX DATA
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        IntBuffer indexBuffer = BufferUtils.createIntBuffer(phobos.getSphere().getIndices().length);
+        indexBuffer.put(phobos.getSphere().getIndices()).flip();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
+        
+        glBindVertexArray(0);
+    }
+    
+    private void createDeimos() {
+        deimos = new Deimos(mars); // PASS MARS REFERENCE FOR ORBITAL CALCULATIONS
+        
+        // CREATE VAO, VBO, EBO FOR DEIMOS
+        int VAO = glGenVertexArrays();
+        int VBO = glGenBuffers();
+        int EBO = glGenBuffers();
+        
+        deimos.setVAO(VAO);
+        deimos.setVBO(VBO);
+        deimos.setEBO(EBO);
+        
+        glBindVertexArray(VAO);
+        
+        // UPLOAD VERTEX DATA
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(deimos.getSphere().getVertices().length);
+        vertexBuffer.put(deimos.getSphere().getVertices()).flip();
+        glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+        
+        // UPLOAD INDEX DATA
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        IntBuffer indexBuffer = BufferUtils.createIntBuffer(deimos.getSphere().getIndices().length);
+        indexBuffer.put(deimos.getSphere().getIndices()).flip();
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0)
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        // NORMAL ATTRIBUTE (LOCATION = 1) - FOR LIGHTING
+        glVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+        glEnableVertexAttribArray(1);
         
         glBindVertexArray(0);
     }
@@ -862,6 +1114,150 @@ public class Window {
         glEnableVertexAttribArray(0);
         
         glBindVertexArray(0);
+        
+        // CREATE MOON ORBIT (RELATIVE TO EARTH)
+        float moonDistance = moon.getDistanceFromEarth();
+        java.util.List<Float> moonOrbitVertices = new java.util.ArrayList<>();
+        
+        for (int i = 0; i <= orbitSegments; i++) {
+            float angle = (float) (2.0 * Math.PI * i / orbitSegments);
+            float x = (float) (moonDistance * Math.cos(angle));
+            float z = (float) (moonDistance * Math.sin(angle));
+            float y = 0.0f; // ORBIT ON XZ PLANE RELATIVE TO EARTH
+            
+            moonOrbitVertices.add(x);
+            moonOrbitVertices.add(y);
+            moonOrbitVertices.add(z);
+        }
+        
+        // CONVERT MOON ORBIT TO ARRAY
+        float[] moonOrbitArray = new float[moonOrbitVertices.size()];
+        for (int i = 0; i < moonOrbitVertices.size(); i++) {
+            moonOrbitArray[i] = moonOrbitVertices.get(i);
+        }
+        
+        moonOrbitVAO = glGenVertexArrays();
+        moonOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(moonOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, moonOrbitVBO);
+        
+        FloatBuffer moonOrbitBuffer = BufferUtils.createFloatBuffer(moonOrbitArray.length);
+        moonOrbitBuffer.put(moonOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, moonOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE MARS ORBIT
+        float marsDistance = mars.getDistanceFromSun();
+        java.util.List<Float> marsOrbitVertices = new java.util.ArrayList<>();
+        
+        for (int i = 0; i <= orbitSegments; i++) {
+            float angle = (float) (2.0 * Math.PI * i / orbitSegments);
+            float x = (float) (marsDistance * Math.cos(angle));
+            float z = (float) (marsDistance * Math.sin(angle));
+            float y = 0.0f; // ORBIT ON XZ PLANE
+            
+            marsOrbitVertices.add(x);
+            marsOrbitVertices.add(y);
+            marsOrbitVertices.add(z);
+        }
+        
+        // CONVERT MARS ORBIT TO ARRAY
+        float[] marsOrbitArray = new float[marsOrbitVertices.size()];
+        for (int i = 0; i < marsOrbitVertices.size(); i++) {
+            marsOrbitArray[i] = marsOrbitVertices.get(i);
+        }
+        
+        marsOrbitVAO = glGenVertexArrays();
+        marsOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(marsOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, marsOrbitVBO);
+        
+        FloatBuffer marsOrbitBuffer = BufferUtils.createFloatBuffer(marsOrbitArray.length);
+        marsOrbitBuffer.put(marsOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, marsOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE PHOBOS ORBIT (AROUND MARS)
+        float phobosDistance = phobos.getDistanceFromMars();
+        java.util.List<Float> phobosOrbitVertices = new java.util.ArrayList<>();
+        
+        for (int i = 0; i <= orbitSegments; i++) {
+            float angle = (float) (2.0 * Math.PI * i / orbitSegments);
+            float x = (float) (phobosDistance * Math.cos(angle));
+            float z = (float) (phobosDistance * Math.sin(angle));
+            float y = 0.0f; // ORBIT ON XZ PLANE RELATIVE TO MARS
+            
+            phobosOrbitVertices.add(x);
+            phobosOrbitVertices.add(y);
+            phobosOrbitVertices.add(z);
+        }
+        
+        // CONVERT PHOBOS ORBIT TO ARRAY
+        float[] phobosOrbitArray = new float[phobosOrbitVertices.size()];
+        for (int i = 0; i < phobosOrbitVertices.size(); i++) {
+            phobosOrbitArray[i] = phobosOrbitVertices.get(i);
+        }
+        
+        phobosOrbitVAO = glGenVertexArrays();
+        phobosOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(phobosOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, phobosOrbitVBO);
+        
+        FloatBuffer phobosOrbitBuffer = BufferUtils.createFloatBuffer(phobosOrbitArray.length);
+        phobosOrbitBuffer.put(phobosOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, phobosOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
+        // CREATE DEIMOS ORBIT (AROUND MARS)
+        float deimosDistance = deimos.getDistanceFromMars();
+        java.util.List<Float> deimosOrbitVertices = new java.util.ArrayList<>();
+        
+        for (int i = 0; i <= orbitSegments; i++) {
+            float angle = (float) (2.0 * Math.PI * i / orbitSegments);
+            float x = (float) (deimosDistance * Math.cos(angle));
+            float z = (float) (deimosDistance * Math.sin(angle));
+            float y = 0.0f; // ORBIT ON XZ PLANE RELATIVE TO MARS
+            
+            deimosOrbitVertices.add(x);
+            deimosOrbitVertices.add(y);
+            deimosOrbitVertices.add(z);
+        }
+        
+        // CONVERT DEIMOS ORBIT TO ARRAY
+        float[] deimosOrbitArray = new float[deimosOrbitVertices.size()];
+        for (int i = 0; i < deimosOrbitVertices.size(); i++) {
+            deimosOrbitArray[i] = deimosOrbitVertices.get(i);
+        }
+        
+        deimosOrbitVAO = glGenVertexArrays();
+        deimosOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(deimosOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, deimosOrbitVBO);
+        
+        FloatBuffer deimosOrbitBuffer = BufferUtils.createFloatBuffer(deimosOrbitArray.length);
+        deimosOrbitBuffer.put(deimosOrbitArray).flip();
+        glBufferData(GL_ARRAY_BUFFER, deimosOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
     }
     
     private Matrix4f createMVPMatrix(int width, int height) {
@@ -886,6 +1282,9 @@ public class Window {
                     break;
                 case "EARTH":
                     targetPosition.set(earth.getPosition());
+                    break;
+                case "MARS":
+                    targetPosition.set(mars.getPosition());
                     break;
                 default:
                     targetPosition.set(0, 0, 0);
@@ -946,7 +1345,7 @@ public class Window {
             mvpMatrix.get(matrixBuffer);
             glUniformMatrix4fv(gridMvpLocation, false, matrixBuffer);
             glBindVertexArray(gridVAO);
-            glDrawArrays(GL_LINES, 0, 804); // 201 * 4 VERTICES (UPDATED FOR EARTH ORBIT COVERAGE)
+            glDrawArrays(GL_LINES, 0, 2408); // 301 * 4 * 2 VERTICES (UPDATED FOR MARS ORBIT COVERAGE)
         }
         
         // RENDER ORBITAL PATHS
@@ -965,6 +1364,57 @@ public class Window {
         
         // RENDER EARTH ORBIT
         glBindVertexArray(earthOrbitVAO);
+        glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
+        
+        // RENDER MOON ORBIT (RELATIVE TO EARTH)
+        Matrix4f moonOrbitModel = new Matrix4f();
+        moonOrbitModel.translate(earth.getPosition()); // TRANSLATE MOON ORBIT TO EARTH'S POSITION
+        Matrix4f moonOrbitMVP = new Matrix4f();
+        mvpMatrix.mul(moonOrbitModel, moonOrbitMVP);
+        
+        FloatBuffer moonOrbitMatrixBuffer = BufferUtils.createFloatBuffer(16);
+        moonOrbitMVP.get(moonOrbitMatrixBuffer);
+        glUniformMatrix4fv(gridMvpLocation, false, moonOrbitMatrixBuffer);
+        
+        glBindVertexArray(moonOrbitVAO);
+        glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
+        
+        // RENDER MARS ORBIT
+        Matrix4f marsOrbitModel = new Matrix4f(); // MARS ORBIT CENTERED AT SUN
+        Matrix4f marsOrbitMVP = new Matrix4f();
+        mvpMatrix.mul(marsOrbitModel, marsOrbitMVP);
+        
+        FloatBuffer marsOrbitMatrixBuffer = BufferUtils.createFloatBuffer(16);
+        marsOrbitMVP.get(marsOrbitMatrixBuffer);
+        glUniformMatrix4fv(gridMvpLocation, false, marsOrbitMatrixBuffer);
+        
+        glBindVertexArray(marsOrbitVAO);
+        glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
+        
+        // RENDER PHOBOS ORBIT (RELATIVE TO MARS)
+        Matrix4f phobosOrbitModel = new Matrix4f();
+        phobosOrbitModel.translate(mars.getPosition()); // TRANSLATE PHOBOS ORBIT TO MARS'S POSITION
+        Matrix4f phobosOrbitMVP = new Matrix4f();
+        mvpMatrix.mul(phobosOrbitModel, phobosOrbitMVP);
+        
+        FloatBuffer phobosOrbitMatrixBuffer = BufferUtils.createFloatBuffer(16);
+        phobosOrbitMVP.get(phobosOrbitMatrixBuffer);
+        glUniformMatrix4fv(gridMvpLocation, false, phobosOrbitMatrixBuffer);
+        
+        glBindVertexArray(phobosOrbitVAO);
+        glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
+        
+        // RENDER DEIMOS ORBIT (RELATIVE TO MARS)
+        Matrix4f deimosOrbitModel = new Matrix4f();
+        deimosOrbitModel.translate(mars.getPosition()); // TRANSLATE DEIMOS ORBIT TO MARS'S POSITION
+        Matrix4f deimosOrbitMVP = new Matrix4f();
+        mvpMatrix.mul(deimosOrbitModel, deimosOrbitMVP);
+        
+        FloatBuffer deimosOrbitMatrixBuffer = BufferUtils.createFloatBuffer(16);
+        deimosOrbitMVP.get(deimosOrbitMatrixBuffer);
+        glUniformMatrix4fv(gridMvpLocation, false, deimosOrbitMatrixBuffer);
+        
+        glBindVertexArray(deimosOrbitVAO);
         glDrawArrays(GL_LINE_LOOP, 0, 129); // 128 SEGMENTS + 1 TO CLOSE THE LOOP
         
         // RENDER SUN
@@ -986,7 +1436,7 @@ public class Window {
         glDrawElements(GL_TRIANGLES, sun.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
         
         // RENDER MERCURY
-        glUseProgram(sunShaderProgram); // SAME SHADER AS SUN FOR NOW
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
         
         // CREATE MERCURY TRANSFORMATION MATRIX
         Matrix4f projection = new Matrix4f();
@@ -1010,6 +1460,9 @@ public class Window {
                     break;
                 case "EARTH":
                     targetPosition.set(earth.getPosition());
+                    break;
+                case "MARS":
+                    targetPosition.set(mars.getPosition());
                     break;
                 default:
                     targetPosition.set(0, 0, 0);
@@ -1040,14 +1493,21 @@ public class Window {
         
         FloatBuffer matrixBufferMercury = BufferUtils.createFloatBuffer(16);
         mercuryMVP.get(matrixBufferMercury);
-        glUniformMatrix4fv(sunMvpLocation, false, matrixBufferMercury);
-        glUniform3f(sunColorLocation, mercury.getColor().x, mercury.getColor().y, mercury.getColor().z);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferMercury);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBufferMercury = BufferUtils.createFloatBuffer(16);
+        mercuryModel.get(modelBufferMercury);
+        glUniformMatrix4fv(planetModelLocation, false, modelBufferMercury);
+        
+        glUniform3f(planetColorLocation, mercury.getColor().x, mercury.getColor().y, mercury.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
         
         glBindVertexArray(mercury.getVAO());
         glDrawElements(GL_TRIANGLES, mercury.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
         
         // RENDER VENUS
-        glUseProgram(sunShaderProgram); // SAME SHADER AS SUN FOR NOW
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
         
         // CREATE VENUS TRANSFORMATION MATRIX
         Matrix4f venusModel = new Matrix4f();
@@ -1060,14 +1520,21 @@ public class Window {
         
         FloatBuffer matrixBufferVenus = BufferUtils.createFloatBuffer(16);
         venusMVP.get(matrixBufferVenus);
-        glUniformMatrix4fv(sunMvpLocation, false, matrixBufferVenus);
-        glUniform3f(sunColorLocation, venus.getColor().x, venus.getColor().y, venus.getColor().z);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferVenus);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBufferVenus = BufferUtils.createFloatBuffer(16);
+        venusModel.get(modelBufferVenus);
+        glUniformMatrix4fv(planetModelLocation, false, modelBufferVenus);
+        
+        glUniform3f(planetColorLocation, venus.getColor().x, venus.getColor().y, venus.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
         
         glBindVertexArray(venus.getVAO());
         glDrawElements(GL_TRIANGLES, venus.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
         
         // RENDER EARTH
-        glUseProgram(sunShaderProgram); // SAME SHADER AS SUN FOR NOW
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
         
         // CREATE EARTH TRANSFORMATION MATRIX
         Matrix4f earthModel = new Matrix4f();
@@ -1080,11 +1547,102 @@ public class Window {
         
         FloatBuffer matrixBufferEarth = BufferUtils.createFloatBuffer(16);
         earthMVP.get(matrixBufferEarth);
-        glUniformMatrix4fv(sunMvpLocation, false, matrixBufferEarth);
-        glUniform3f(sunColorLocation, earth.getColor().x, earth.getColor().y, earth.getColor().z);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferEarth);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBufferEarth = BufferUtils.createFloatBuffer(16);
+        earthModel.get(modelBufferEarth);
+        glUniformMatrix4fv(planetModelLocation, false, modelBufferEarth);
+        
+        glUniform3f(planetColorLocation, earth.getColor().x, earth.getColor().y, earth.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
         
         glBindVertexArray(earth.getVAO());
         glDrawElements(GL_TRIANGLES, earth.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        
+        // RENDER MOON
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
+        
+        // CREATE MOON TRANSFORMATION MATRIX
+        Matrix4f moonModel = new Matrix4f();
+        moonModel.translate(moon.getPosition()); // TRANSLATE TO MOON'S POSITION AROUND EARTH
+        moonModel.rotateY(moon.getRotationAngle()); // TIDALLY LOCKED ROTATION (MATCHES ORBITAL PERIOD)
+        
+        Matrix4f moonMVP = new Matrix4f();
+        projection.mul(view, moonMVP);
+        moonMVP.mul(moonModel);
+        
+        FloatBuffer matrixBufferMoon = BufferUtils.createFloatBuffer(16);
+        moonMVP.get(matrixBufferMoon);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferMoon);
+        glUniform3f(planetColorLocation, moon.getColor().x, moon.getColor().y, moon.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
+        
+        glBindVertexArray(moon.getVAO());
+        glDrawElements(GL_TRIANGLES, moon.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        
+        // RENDER MARS
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
+        
+        // CREATE MARS TRANSFORMATION MATRIX
+        Matrix4f marsModel = new Matrix4f();
+        marsModel.translate(mars.getPosition()); // TRANSLATE TO MARS'S ORBIT POSITION
+        marsModel.rotateY(mars.getRotationAngle()); // ADD PLANET ROTATION
+        
+        Matrix4f marsMVP = new Matrix4f();
+        projection.mul(view, marsMVP);
+        marsMVP.mul(marsModel);
+        
+        FloatBuffer matrixBufferMars = BufferUtils.createFloatBuffer(16);
+        marsMVP.get(matrixBufferMars);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferMars);
+        glUniform3f(planetColorLocation, mars.getColor().x, mars.getColor().y, mars.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
+        
+        glBindVertexArray(mars.getVAO());
+        glDrawElements(GL_TRIANGLES, mars.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        
+        // RENDER PHOBOS
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
+        
+        // CREATE PHOBOS TRANSFORMATION MATRIX
+        Matrix4f phobosModel = new Matrix4f();
+        phobosModel.translate(phobos.getPosition()); // TRANSLATE TO PHOBOS'S POSITION AROUND MARS
+        phobosModel.rotateY(phobos.getRotationAngle()); // TIDALLY LOCKED ROTATION (MATCHES ORBITAL PERIOD)
+        
+        Matrix4f phobosMVP = new Matrix4f();
+        projection.mul(view, phobosMVP);
+        phobosMVP.mul(phobosModel);
+        
+        FloatBuffer matrixBufferPhobos = BufferUtils.createFloatBuffer(16);
+        phobosMVP.get(matrixBufferPhobos);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferPhobos);
+        glUniform3f(planetColorLocation, phobos.getColor().x, phobos.getColor().y, phobos.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
+        
+        glBindVertexArray(phobos.getVAO());
+        glDrawElements(GL_TRIANGLES, phobos.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        
+        // RENDER DEIMOS
+        glUseProgram(planetShaderProgram); // USE PLANET LIGHTING SHADER
+        
+        // CREATE DEIMOS TRANSFORMATION MATRIX
+        Matrix4f deimosModel = new Matrix4f();
+        deimosModel.translate(deimos.getPosition()); // TRANSLATE TO DEIMOS'S POSITION AROUND MARS
+        deimosModel.rotateY(deimos.getRotationAngle()); // TIDALLY LOCKED ROTATION (MATCHES ORBITAL PERIOD)
+        
+        Matrix4f deimosMVP = new Matrix4f();
+        projection.mul(view, deimosMVP);
+        deimosMVP.mul(deimosModel);
+        
+        FloatBuffer matrixBufferDeimos = BufferUtils.createFloatBuffer(16);
+        deimosMVP.get(matrixBufferDeimos);
+        glUniformMatrix4fv(planetMvpLocation, false, matrixBufferDeimos);
+        glUniform3f(planetColorLocation, deimos.getColor().x, deimos.getColor().y, deimos.getColor().z);
+        glUniform3f(planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
+        
+        glBindVertexArray(deimos.getVAO());
+        glDrawElements(GL_TRIANGLES, deimos.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
         
         // RENDER UI (2D OVERLAY)
         renderUI(width[0], height[0]);
@@ -1117,6 +1675,7 @@ public class Window {
         glDeleteBuffers(textVBO);
         glDeleteProgram(gridShaderProgram);
         glDeleteProgram(sunShaderProgram);
+        glDeleteProgram(planetShaderProgram);
         glDeleteProgram(uiShaderProgram);
         glfwDestroyWindow(windowHandle);
         glfwTerminate();
@@ -1160,18 +1719,27 @@ public class Window {
         
         // DETERMINE BUTTON X POSITION BASED ON TYPE
         float buttonX;
+        float buttonY;
         switch (buttonType) {
             case "SUN":
                 buttonX = SUN_BUTTON_X;
+                buttonY = TRACK_BUTTON_Y;
                 break;
             case "MERCURY":
                 buttonX = MERCURY_BUTTON_X;
+                buttonY = TRACK_BUTTON_Y;
                 break;
             case "VENUS":
                 buttonX = VENUS_BUTTON_X;
+                buttonY = TRACK_BUTTON_Y;
                 break;
             case "EARTH":
                 buttonX = EARTH_BUTTON_X;
+                buttonY = TRACK_BUTTON_Y;
+                break;
+            case "MARS":
+                buttonX = MARS_BUTTON_X;
+                buttonY = TRACK_BUTTON_Y2;
                 break;
             default:
                 return false;
@@ -1179,7 +1747,7 @@ public class Window {
         
         // CHECK IF POINT IS INSIDE TRACKING BUTTONS BOUNDS
         return mouseX >= buttonX && mouseX <= buttonX + TRACK_BUTTON_WIDTH &&
-               adjustedY >= TRACK_BUTTON_Y && adjustedY <= TRACK_BUTTON_Y + TRACK_BUTTON_HEIGHT;
+               adjustedY >= buttonY && adjustedY <= buttonY + TRACK_BUTTON_HEIGHT;
     }
     
     private void setTrackedObject(String objectName) {
@@ -1272,6 +1840,10 @@ public class Window {
         mercury.updateOrbitalPosition(deltaTime);
         venus.updateOrbitalPosition(deltaTime);
         earth.updateOrbitalPosition(deltaTime);
+        moon.updateOrbitalPosition(deltaTime); // MOON FOLLOWS EARTH'S MOTION
+        mars.updateOrbitalPosition(deltaTime);
+        phobos.updateOrbitalPosition(deltaTime); // PHOBOS FOLLOWS MARS' MOTION
+        deimos.updateOrbitalPosition(deltaTime); // DEIMOS FOLLOWS MARS' MOTION
     }
     
     private void createTrackingButtons() {
@@ -1367,6 +1939,29 @@ public class Window {
         
         glBindVertexArray(0);
         
+        // MARS BUTTON
+        float[] marsButtonVertices = {
+            MARS_BUTTON_X, TRACK_BUTTON_Y2,                           // BOTTOM LEFT
+            MARS_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y2,      // BOTTOM RIGHT
+            MARS_BUTTON_X + TRACK_BUTTON_WIDTH, TRACK_BUTTON_Y2 + TRACK_BUTTON_HEIGHT,  // TOP RIGHT
+            MARS_BUTTON_X, TRACK_BUTTON_Y2 + TRACK_BUTTON_HEIGHT      // TOP LEFT
+        };
+        
+        marsButtonVAO = glGenVertexArrays();
+        marsButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(marsButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, marsButtonVBO);
+        
+        FloatBuffer marsBuffer = BufferUtils.createFloatBuffer(marsButtonVertices.length);
+        marsBuffer.put(marsButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, marsBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+        
         // CREATE BUTTON LABELS (PLACEHOLDER FOR FUTURE TEXT RENDERING)
         createTrackingButtonLabels();
     }
@@ -1418,7 +2013,11 @@ public class Window {
                 break;
             case "EARTH":
                 targetPosition.set(earth.getPosition());
-                viewingDistance = 800.0f; // LARGER DISTANCE FOR EARTH SINCE IT'S A BIGGER PLANET
+                viewingDistance = 50.0f; // CLOSER DISTANCE FOR SMALLER REALISTIC EARTH
+                break;
+            case "MARS":
+                targetPosition.set(mars.getPosition());
+                viewingDistance = 100.0f; // MEDIUM DISTANCE FOR MARS
                 break;
             default:
                 return;
@@ -1429,9 +2028,12 @@ public class Window {
         
         // CALCULATE CAMERA POSITION USING SPHERICAL COORDINATES AROUND TARGET
         // USE CURRENT YAW AND PITCH TO MAINTAIN ORBITAL CAMERA POSITION
-        float x = targetPosition.x + viewingDistance * (float) (Math.cos(cameraPitch) * Math.sin(cameraYaw));
-        float y = targetPosition.y + viewingDistance * (float) Math.sin(cameraPitch);
-        float z = targetPosition.z + viewingDistance * (float) (Math.cos(cameraPitch) * Math.cos(cameraYaw));
+        float radPitch = (float) Math.toRadians(cameraPitch);
+        float radYaw = (float) Math.toRadians(cameraYaw);
+        
+        float x = targetPosition.x + viewingDistance * (float) (Math.cos(radPitch) * Math.sin(radYaw));
+        float y = targetPosition.y + viewingDistance * (float) Math.sin(radPitch);
+        float z = targetPosition.z + viewingDistance * (float) (Math.cos(radPitch) * Math.cos(radYaw));
         
         cameraX = x;
         cameraY = y;
@@ -1476,6 +2078,15 @@ public class Window {
             glUniform3f(uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
         }
         glBindVertexArray(earthButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // MARS BUTTON
+        if ("MARS".equals(trackedObject)) {
+            glUniform3f(uiColorLocation, 1.0f, 0.5f, 0.0f); // ORANGE WHEN TRACKING MARS
+        } else {
+            glUniform3f(uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
+        }
+        glBindVertexArray(marsButtonVAO);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
 }
