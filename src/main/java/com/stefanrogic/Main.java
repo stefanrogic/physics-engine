@@ -13,7 +13,7 @@ public class Main {
         Window window = new Window();
         window.create(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
         
-        // Main loop
+        // MAIN LOOP
         while (!window.shouldClose()) {
             window.update();
         }
