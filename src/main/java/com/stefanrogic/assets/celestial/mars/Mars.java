@@ -1,6 +1,8 @@
-package com.stefanrogic.objects;
+package com.stefanrogic.assets.celestial.mars;
 
 import org.joml.Vector3f;
+import com.stefanrogic.core.astronomy.AstronomicalCalculator;
+import com.stefanrogic.assets.Sphere;
 
 public class Mars {
     private Sphere sphere;
