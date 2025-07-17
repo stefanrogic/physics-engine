@@ -8,7 +8,6 @@ import static org.lwjgl.opengl.GL30.*;
 import java.nio.FloatBuffer;
 import org.lwjgl.BufferUtils;
 import org.joml.Matrix4f;
-import com.stefanrogic.core.rendering.ShaderManager;
 
 /**
  * Handles rendering of the reference grid in the solar system simulation

@@ -3,12 +3,15 @@ package com.stefanrogic.assets.celestial.earth;
 import org.joml.Vector3f;
 import com.stefanrogic.core.astronomy.AstronomicalCalculator;
 import com.stefanrogic.assets.Sphere;
+import com.stefanrogic.assets.ProceduralSphere;
 
 public class Earth {
     private Sphere sphere;
     private Vector3f position;
     private Vector3f oceanColor;
     private Vector3f landColor;
+    private Vector3f iceColor;
+    private Vector3f mountainColor;
     private int VAO, VBO, EBO;
     
     // EARTH DATA (SCALE: 1 UNIT = 10,000 KM)
@@ -28,8 +31,10 @@ public class Earth {
         // EARTH'S CURRENT POSITION BASED ON REAL-TIME ASTRONOMICAL DATA
         this.currentAngle = (float) AstronomicalCalculator.getCurrentOrbitalAngle("EARTH");
         updatePosition();
-        this.oceanColor = new Vector3f(0.1f, 0.3f, 0.8f); // DEEP BLUE OCEANS
-        this.landColor = new Vector3f(0.2f, 0.6f, 0.2f); // GREEN CONTINENTS
+        this.oceanColor = new Vector3f(0.02f, 0.15f, 0.6f); // DEEPER BLUE OCEANS
+        this.landColor = new Vector3f(0.05f, 0.5f, 0.05f); // RICHER GREEN CONTINENTS
+        this.iceColor = new Vector3f(0.95f, 0.98f, 1.0f); // BRIGHT WHITE ICE CAPS
+        this.mountainColor = new Vector3f(0.3f, 0.25f, 0.15f); // BROWNISH MOUNTAINS
         this.sphere = new Sphere(EARTH_RADIUS, SPHERE_DETAIL, SPHERE_DETAIL);
         
         setupBuffers();
@@ -42,12 +47,90 @@ public class Earth {
     
     // FOR NOW, WE'LL USE A BLEND OF OCEAN AND LAND COLORS
     // LATER WE CAN IMPLEMENT A MORE COMPLEX SHADER FOR CONTINENTS
+    /**
+     * Get base Earth color with atmospheric effect
+     */
     public Vector3f getColor() { 
-        // EARTH APPEARS AS A BLUE-GREEN BLEND FROM DISTANCE
-        return new Vector3f(0.2f, 0.4f, 0.7f); // EARTH BLUE-GREEN BLEND
+        // EARTH WITH ATMOSPHERIC BLUE GLOW
+        return new Vector3f(0.15f, 0.35f, 0.65f); // MORE REALISTIC EARTH BLUE
     }
+    
+    /**
+     * Get enhanced Earth color that simulates continent/ocean variations
+     */
+    public Vector3f getEnhancedColor() {
+        // BLEND OCEAN, LAND, AND ICE COLORS FOR REALISTIC APPEARANCE
+        return new Vector3f(
+            oceanColor.x * 0.65f + landColor.x * 0.25f + iceColor.x * 0.1f,
+            oceanColor.y * 0.65f + landColor.y * 0.25f + iceColor.y * 0.1f,
+            oceanColor.z * 0.65f + landColor.z * 0.25f + iceColor.z * 0.1f
+        );
+    }
+    
+    /**
+     * GET COLOR BASED ON SPHERICAL COORDINATES TO SIMULATE CONTINENTS
+     * This method creates a simple continent pattern based on latitude and longitude
+     */
+    public Vector3f getColorAtPosition(float latitude, float longitude) {
+        // NORMALIZE LATITUDE AND LONGITUDE TO [0, 1] RANGE
+        float lat = (latitude + (float)Math.PI/2) / (float)Math.PI; // 0 to 1 (south to north)
+        float lon = (longitude + (float)Math.PI) / (2*(float)Math.PI); // 0 to 1 (west to east)
+        
+        // ICE CAPS AT POLES
+        if (lat < 0.1f || lat > 0.9f) {
+            return iceColor; // WHITE ICE CAPS
+        }
+        
+        // SIMPLE CONTINENT PATTERN - APPROXIMATING EARTH'S LANDMASSES
+        boolean isLand = false;
+        
+        // AFRICA AND EUROPE (longitude 0.0-0.25, latitude 0.3-0.8)
+        if (lon >= 0.0f && lon <= 0.25f && lat >= 0.3f && lat <= 0.8f) {
+            isLand = true;
+        }
+        // ASIA (longitude 0.2-0.7, latitude 0.4-0.85)
+        else if (lon >= 0.2f && lon <= 0.7f && lat >= 0.4f && lat <= 0.85f) {
+            isLand = true;
+        }
+        // NORTH AMERICA (longitude 0.75-1.0, latitude 0.5-0.85)
+        else if (lon >= 0.75f && lat >= 0.5f && lat <= 0.85f) {
+            isLand = true;
+        }
+        // SOUTH AMERICA (longitude 0.8-0.95, latitude 0.15-0.55)
+        else if (lon >= 0.8f && lon <= 0.95f && lat >= 0.15f && lat <= 0.55f) {
+            isLand = true;
+        }
+        // AUSTRALIA (longitude 0.6-0.75, latitude 0.15-0.35)
+        else if (lon >= 0.6f && lon <= 0.75f && lat >= 0.15f && lat <= 0.35f) {
+            isLand = true;
+        }
+        
+        // ADD SOME NOISE FOR MORE REALISTIC COASTLINES
+        float noise = (float)(Math.sin(lat * 20) * Math.cos(lon * 30) * 0.1);
+        
+        if (isLand) {
+            // VARY LAND COLOR BASED ON LATITUDE (GREENER NEAR EQUATOR, BROWNER NEAR POLES)
+            float greenness = 1.0f - Math.abs(lat - 0.5f) * 2.0f; // MORE GREEN NEAR EQUATOR
+            return new Vector3f(
+                landColor.x + (mountainColor.x - landColor.x) * (1.0f - greenness) + noise,
+                landColor.y * greenness + noise,
+                landColor.z + noise
+            );
+        } else {
+            // OCEAN COLOR WITH SLIGHT DEPTH VARIATION
+            float depth = 0.8f + noise * 0.2f;
+            return new Vector3f(
+                oceanColor.x * depth,
+                oceanColor.y * depth,
+                oceanColor.z
+            );
+        }
+    }
+    
     public Vector3f getOceanColor() { return oceanColor; }
     public Vector3f getLandColor() { return landColor; }
+    public Vector3f getIceColor() { return iceColor; }
+    public Vector3f getMountainColor() { return mountainColor; }
     
     public Vector3f getPosition() { return position; }
     public Sphere getSphere() { return sphere; }

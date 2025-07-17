@@ -1,7 +1,6 @@
 package com.stefanrogic.core.rendering;
 
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
 
@@ -17,8 +16,6 @@ import com.stefanrogic.assets.celestial.earth.Moon;
 import com.stefanrogic.assets.celestial.mars.Mars;
 import com.stefanrogic.assets.celestial.mars.Phobos;
 import com.stefanrogic.assets.celestial.mars.Deimos;
-import com.stefanrogic.assets.Sphere;
-import com.stefanrogic.assets.celestial.Sun;
 import com.stefanrogic.core.scene.SceneManager;
 import com.stefanrogic.core.input.Camera;
 
@@ -99,11 +96,11 @@ public class RenderEngine {
     }
     
     private void renderEarth(Matrix4f projection, Matrix4f view) {
-        renderPlanet(sceneManager.getEarth(), projection, view);
+        renderEarthWithSurface(sceneManager.getEarth(), projection, view);
     }
     
     private void renderMoon(Matrix4f projection, Matrix4f view) {
-        renderPlanet(sceneManager.getMoon(), projection, view);
+        renderMoonWithCraters(sceneManager.getMoon(), projection, view);
     }
     
     private void renderMars(Matrix4f projection, Matrix4f view) {
@@ -155,6 +152,72 @@ public class RenderEngine {
         glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     }
     
+    /**
+     * Specialized Earth rendering with surface features (continents, oceans, ice caps)
+     */
+    private void renderEarthWithSurface(Earth earth, Matrix4f projection, Matrix4f view) {
+        glUseProgram(shaders.surfaceShaderProgram); // USE SURFACE SHADER WITH VERTEX COLORS
+        
+        Vector3f position = earth.getPosition();
+        float rotationAngle = earth.getRotationAngle();
+        
+        // CREATE TRANSFORMATION MATRIX
+        Matrix4f earthModel = new Matrix4f();
+        earthModel.translate(position);
+        earthModel.rotateY(rotationAngle);
+        
+        Matrix4f earthMVP = new Matrix4f();
+        projection.mul(view, earthMVP);
+        earthMVP.mul(earthModel);
+        
+        FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+        earthMVP.get(matrixBuffer);
+        glUniformMatrix4fv(shaders.surfaceMvpLocation, false, matrixBuffer);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBuffer = BufferUtils.createFloatBuffer(16);
+        earthModel.get(modelBuffer);
+        glUniformMatrix4fv(shaders.surfaceModelLocation, false, modelBuffer);
+        
+        glUniform3f(shaders.surfaceSunPosLocation, 0.0f, 0.0f, 0.0f);
+        
+        glBindVertexArray(earth.getVAO());
+        glDrawElements(GL_TRIANGLES, earth.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+    }
+    
+    /**
+     * Specialized Moon rendering with crater patterns
+     */
+    private void renderMoonWithCraters(Moon moon, Matrix4f projection, Matrix4f view) {
+        glUseProgram(shaders.surfaceShaderProgram); // USE SURFACE SHADER WITH VERTEX COLORS
+        
+        Vector3f position = moon.getPosition();
+        float rotationAngle = moon.getRotationAngle();
+        
+        // CREATE TRANSFORMATION MATRIX
+        Matrix4f moonModel = new Matrix4f();
+        moonModel.translate(position);
+        moonModel.rotateY(rotationAngle);
+        
+        Matrix4f moonMVP = new Matrix4f();
+        projection.mul(view, moonMVP);
+        moonMVP.mul(moonModel);
+        
+        FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+        moonMVP.get(matrixBuffer);
+        glUniformMatrix4fv(shaders.surfaceMvpLocation, false, matrixBuffer);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBuffer = BufferUtils.createFloatBuffer(16);
+        moonModel.get(modelBuffer);
+        glUniformMatrix4fv(shaders.surfaceModelLocation, false, modelBuffer);
+        
+        glUniform3f(shaders.surfaceSunPosLocation, 0.0f, 0.0f, 0.0f);
+        
+        glBindVertexArray(moon.getVAO());
+        glDrawElements(GL_TRIANGLES, moon.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+    }
+
     /**
      * Helper methods to extract planet properties using pattern matching
      */

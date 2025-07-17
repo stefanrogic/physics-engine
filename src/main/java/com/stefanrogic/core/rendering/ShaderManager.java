@@ -28,21 +28,17 @@ public class ShaderManager {
     }
     
     public static class ShaderPrograms {
-        public final int gridShaderProgram;
-        public final int sunShaderProgram;
-        public final int planetShaderProgram;
-        public final int uiShaderProgram;
+        public int gridShaderProgram;
+        public int sunShaderProgram;
+        public int planetShaderProgram;
+        public int surfaceShaderProgram; // NEW SHADER FOR SURFACE VARIATIONS
+        public int uiShaderProgram;
         
-        // Uniform locations
-        public final int gridMvpLocation;
-        public final int sunMvpLocation;
-        public final int sunColorLocation;
-        public final int planetMvpLocation;
-        public final int planetColorLocation;
-        public final int planetSunPosLocation;
-        public final int planetModelLocation;
-        public final int uiMvpLocation;
-        public final int uiColorLocation;
+        public int gridMvpLocation;
+        public int sunMvpLocation, sunColorLocation;
+        public int planetMvpLocation, planetColorLocation, planetSunPosLocation, planetModelLocation;
+        public int surfaceMvpLocation, surfaceModelLocation, surfaceSunPosLocation; // NEW LOCATIONS
+        public int uiMvpLocation, uiColorLocation;
         
         public ShaderPrograms() {
             // GRID SHADER
@@ -148,6 +144,70 @@ public class ShaderManager {
                 }
                 """;
             
+            // SURFACE SHADER - FOR EARTH AND MOON WITH VERTEX COLORS
+            String surfaceVertexShader = """
+                #version 330 core
+                layout (location = 0) in vec3 aPos;
+                layout (location = 1) in vec3 aNormal;
+                layout (location = 2) in vec2 aTexCoord;
+                layout (location = 3) in vec3 aSurfaceColor;
+                
+                uniform mat4 mvpMatrix;
+                uniform mat4 modelMatrix;
+                uniform vec3 sunPosition;
+                
+                out vec3 fragPos;
+                out vec3 normal;
+                out vec3 sunDir;
+                out vec3 surfaceColor;
+                
+                void main() {
+                    // TRANSFORM VERTEX TO WORLD SPACE
+                    vec4 worldPos = modelMatrix * vec4(aPos, 1.0);
+                    fragPos = worldPos.xyz;
+                    
+                    // TRANSFORM NORMAL TO WORLD SPACE
+                    normal = normalize(mat3(modelMatrix) * aNormal);
+                    
+                    // CALCULATE SUN DIRECTION
+                    sunDir = normalize(sunPosition - fragPos);
+                    
+                    // PASS SURFACE COLOR TO FRAGMENT SHADER
+                    surfaceColor = aSurfaceColor;
+                    
+                    gl_Position = mvpMatrix * vec4(aPos, 1.0);
+                }
+                """;
+            
+            String surfaceFragmentShader = """
+                #version 330 core
+                in vec3 fragPos;
+                in vec3 normal;
+                in vec3 sunDir;
+                in vec3 surfaceColor;
+                
+                out vec4 FragColor;
+                
+                void main() {
+                    // NORMALIZE THE NORMAL VECTOR
+                    vec3 norm = normalize(normal);
+                    
+                    // CALCULATE DIFFUSE LIGHTING
+                    float NdotL = dot(norm, sunDir);
+                    float diffuse = max(NdotL, 0.0);
+                    
+                    // ADD AMBIENT LIGHTING
+                    float ambient = 0.25;
+                    
+                    // ENHANCED LIGHTING FOR SURFACE DETAILS
+                    float finalLighting = ambient + diffuse * 0.75;
+                    
+                    // APPLY LIGHTING TO SURFACE COLOR (FROM VERTEX)
+                    vec3 result = surfaceColor * finalLighting;
+                    FragColor = vec4(result, 1.0);
+                }
+                """;
+            
             // UI SHADER (2D OVERLAY)
             String uiVertexShader = """
                 #version 330 core
@@ -171,6 +231,7 @@ public class ShaderManager {
             gridShaderProgram = createShaderProgram(gridVertexShader, gridFragmentShader);
             sunShaderProgram = createShaderProgram(sunVertexShader, sunFragmentShader);
             planetShaderProgram = createShaderProgram(planetVertexShader, planetFragmentShader);
+            surfaceShaderProgram = createShaderProgram(surfaceVertexShader, surfaceFragmentShader);
             uiShaderProgram = createShaderProgram(uiVertexShader, uiFragmentShader);
             
             // Get uniform locations
@@ -181,6 +242,9 @@ public class ShaderManager {
             planetColorLocation = glGetUniformLocation(planetShaderProgram, "planetColor");
             planetSunPosLocation = glGetUniformLocation(planetShaderProgram, "sunPosition");
             planetModelLocation = glGetUniformLocation(planetShaderProgram, "modelMatrix");
+            surfaceMvpLocation = glGetUniformLocation(surfaceShaderProgram, "mvpMatrix");
+            surfaceModelLocation = glGetUniformLocation(surfaceShaderProgram, "modelMatrix");
+            surfaceSunPosLocation = glGetUniformLocation(surfaceShaderProgram, "sunPosition");
             uiMvpLocation = glGetUniformLocation(uiShaderProgram, "mvpMatrix");
             uiColorLocation = glGetUniformLocation(uiShaderProgram, "uiColor");
         }
