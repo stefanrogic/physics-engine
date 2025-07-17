@@ -2,6 +2,7 @@ package com.stefanrogic.assets.celestial.earth;
 
 import org.joml.Vector3f;
 import com.stefanrogic.assets.Sphere;
+import com.stefanrogic.assets.ProceduralSphere;
 
 public class Moon {
     private Sphere sphere;
@@ -31,7 +32,7 @@ public class Moon {
         // START MOON AT A RANDOM ORBITAL POSITION
         this.currentAngle = 0.0f; // START AT 0 DEGREES
         updatePosition();
-        this.color = new Vector3f(0.8f, 0.8f, 0.8f); // GRAY MOON COLOR
+        this.color = new Vector3f(0.6f, 0.6f, 0.65f); // GRAYISH MOON WITH SLIGHT BLUE TINT
         this.sphere = new Sphere(MOON_RADIUS, SPHERE_DETAIL, SPHERE_DETAIL);
         
         setupBuffers();
@@ -43,6 +44,102 @@ public class Moon {
     }
     
     public Vector3f getColor() { return color; }
+    
+    /**
+     * Get enhanced Moon color with crater variations
+     */
+    public Vector3f getEnhancedColor() {
+        // SIMULATE LUNA SURFACE WITH MARIA (DARK AREAS) AND HIGHLANDS
+        return new Vector3f(
+            color.x * 0.8f, // DARKER THAN PURE GRAY
+            color.y * 0.8f,
+            color.z * 0.85f // SLIGHT BLUE TINT FROM EARTHLIGHT
+        );
+    }
+    
+    /**
+     * GET COLOR WITH CRATER PATTERN TO SIMULATE MOON'S SURFACE
+     * This method creates crater patterns based on spherical coordinates
+     */
+    public Vector3f getColorAtPosition(float latitude, float longitude) {
+        // NORMALIZE COORDINATES
+        float lat = (latitude + (float)Math.PI/2) / (float)Math.PI; // 0 to 1
+        float lon = (longitude + (float)Math.PI) / (2*(float)Math.PI); // 0 to 1
+        
+        Vector3f baseColor = new Vector3f(color);
+        
+        // CREATE CRATER PATTERN USING MATHEMATICAL FUNCTIONS
+        float craterPattern = 0.0f;
+        
+        // MAJOR CRATER CENTERS (APPROXIMATING REAL LUNAR FEATURES)
+        float[][] craters = {
+            {0.6f, 0.3f, 0.15f}, // TYCHO CRATER (SOUTH)
+            {0.4f, 0.7f, 0.12f}, // COPERNICUS (NORTH)
+            {0.8f, 0.5f, 0.18f}, // CLAVIUS (SOUTH)
+            {0.3f, 0.4f, 0.1f},  // ARISTARCHUS
+            {0.7f, 0.8f, 0.08f}, // PLATO
+            {0.5f, 0.6f, 0.14f}, // PTOLEMAEUS
+            {0.2f, 0.2f, 0.09f}, // LANGRENUS
+            {0.9f, 0.4f, 0.11f}, // PETAVIUS
+            {0.45f, 0.35f, 0.13f}, // ALPHONSUS
+            {0.65f, 0.65f, 0.07f}  // ARCHIMEDES
+        };
+        
+        for (float[] crater : craters) {
+            float centerLat = crater[0];
+            float centerLon = crater[1];
+            float radius = crater[2];
+            
+            // CALCULATE DISTANCE FROM CRATER CENTER
+            float deltaLat = lat - centerLat;
+            float deltaLon = lon - centerLon;
+            
+            // HANDLE LONGITUDE WRAPAROUND
+            if (deltaLon > 0.5f) deltaLon -= 1.0f;
+            if (deltaLon < -0.5f) deltaLon += 1.0f;
+            
+            float distance = (float)Math.sqrt(deltaLat * deltaLat + deltaLon * deltaLon);
+            
+            if (distance < radius) {
+                // CRATER RIM AND INTERIOR
+                float depthFactor = 1.0f - (distance / radius);
+                float rimEffect = (float)Math.sin(depthFactor * Math.PI);
+                
+                if (distance < radius * 0.8f) {
+                    // CRATER INTERIOR - DARKER
+                    craterPattern += rimEffect * 0.4f;
+                } else {
+                    // CRATER RIM - BRIGHTER
+                    craterPattern -= rimEffect * 0.2f;
+                }
+            }
+        }
+        
+        // ADD GENERAL SURFACE ROUGHNESS
+        float roughness = (float)(
+            Math.sin(lat * 40) * Math.cos(lon * 50) * 0.05 +
+            Math.sin(lat * 80) * Math.cos(lon * 90) * 0.03 +
+            Math.sin(lat * 160) * Math.cos(lon * 180) * 0.02
+        );
+        
+        // MARIA (DARK PLAINS) - SIMPLIFIED PATTERN
+        float maria = 0.0f;
+        if ((lat >= 0.4f && lat <= 0.7f && lon >= 0.1f && lon <= 0.4f) || // MARE TRANQUILLITATIS
+            (lat >= 0.3f && lat <= 0.6f && lon >= 0.5f && lon <= 0.8f) || // MARE IMBRIUM
+            (lat >= 0.2f && lat <= 0.5f && lon >= 0.2f && lon <= 0.6f)) { // MARE SERENITATIS
+            maria = -0.3f;
+        }
+        
+        // COMBINE ALL EFFECTS
+        float totalEffect = craterPattern + roughness + maria;
+        totalEffect = Math.max(-0.5f, Math.min(0.3f, totalEffect)); // CLAMP
+        
+        return new Vector3f(
+            Math.max(0.1f, baseColor.x + totalEffect),
+            Math.max(0.1f, baseColor.y + totalEffect),
+            Math.max(0.1f, baseColor.z + totalEffect)
+        );
+    }
     public Vector3f getPosition() { return position; }
     public Sphere getSphere() { return sphere; }
     public float getRadius() { return MOON_RADIUS; }

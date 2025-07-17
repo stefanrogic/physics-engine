@@ -1,6 +1,5 @@
 package com.stefanrogic.core.scene;
 
-import com.stefanrogic.assets.*;
 import com.stefanrogic.assets.celestial.*;
 import com.stefanrogic.assets.celestial.earth.*;
 import com.stefanrogic.assets.celestial.mars.*;
