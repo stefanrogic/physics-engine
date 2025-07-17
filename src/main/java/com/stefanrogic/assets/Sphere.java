@@ -1,4 +1,4 @@
-package com.stefanrogic.objects;
+package com.stefanrogic.assets;
 
 import java.util.ArrayList;
 import java.util.List;

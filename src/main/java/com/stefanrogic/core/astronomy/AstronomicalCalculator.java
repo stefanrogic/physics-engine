@@ -1,4 +1,4 @@
-package com.stefanrogic.objects;
+package com.stefanrogic.core.astronomy;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;

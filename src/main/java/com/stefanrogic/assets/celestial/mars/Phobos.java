@@ -1,6 +1,7 @@
-package com.stefanrogic.objects;
+package com.stefanrogic.assets.celestial.mars;
 
 import org.joml.Vector3f;
+import com.stefanrogic.assets.Sphere;
 
 public class Phobos {
     private Sphere sphere;
