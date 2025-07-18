@@ -35,6 +35,7 @@ public class UIManager {
     private int venusButtonVAO, venusButtonVBO;
     private int earthButtonVAO, earthButtonVBO;
     private int marsButtonVAO, marsButtonVBO;
+    private int jupiterButtonVAO, jupiterButtonVBO;
     
     // UI BUTTON COORDINATES - GRID BUTTON
     public static final float BUTTON_X = 20.0f;
@@ -59,6 +60,7 @@ public class UIManager {
     // MARS SYSTEM BUTTONS (SECOND ROW) - REMOVED INDIVIDUAL MOON BUTTONS TO REDUCE CLUTTER
     public static final float TRACK_BUTTON_Y2 = 100.0f; // SECOND ROW
     public static final float MARS_BUTTON_X = 20.0f;
+    public static final float JUPITER_BUTTON_X = 55.0f;
     
     // UI state
     private boolean gridVisible = false;
@@ -294,6 +296,11 @@ public class UIManager {
         createTrackingButton(MARS_BUTTON_X, TRACK_BUTTON_Y2,
                            marsButtonVAO = glGenVertexArrays(),
                            marsButtonVBO = glGenBuffers());
+        
+        // JUPITER BUTTON (SECOND ROW)
+        createTrackingButton(JUPITER_BUTTON_X, TRACK_BUTTON_Y2,
+                           jupiterButtonVAO = glGenVertexArrays(),
+                           jupiterButtonVBO = glGenBuffers());
     }
     
     private void createTrackingButton(float x, float y, int VAO, int VBO) {
@@ -321,7 +328,7 @@ public class UIManager {
         // CREATE SIMPLE TEXT LABELS FOR EACH TRACKING BUTTON
         // FOR SIMPLICITY, WE'LL CREATE LETTER SHAPES USING SMALL RECTANGLES
         // THESE WILL BE RENDERED AS WHITE TEXT OVER THE BUTTONS
-        System.out.println("Tracking buttons created: Sun (S), Mercury (M), Venus (V), Earth (E)");
+        System.out.println("Tracking buttons created: Sun (S), Mercury (M), Venus (V), Earth (E), Jupiter (J)");
     }
     
     /**
@@ -434,6 +441,15 @@ public class UIManager {
             glUniform3f(shaders.uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
         }
         glBindVertexArray(marsButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // JUPITER BUTTON
+        if ("JUPITER".equals(camera.getTrackedObject())) {
+            glUniform3f(shaders.uiColorLocation, 0.8f, 0.7f, 0.4f); // BROWNISH WHEN TRACKING JUPITER
+        } else {
+            glUniform3f(shaders.uiColorLocation, 0.3f, 0.3f, 0.3f); // GRAY WHEN NOT TRACKING
+        }
+        glBindVertexArray(jupiterButtonVAO);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
     

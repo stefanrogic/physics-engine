@@ -33,7 +33,7 @@ public class Camera {
     
     // Camera tracking
     private boolean trackingEnabled = false;
-    private String trackedObject = "NONE"; // "SUN", "MERCURY", "VENUS", "EARTH", "MARS", "NONE"
+    private String trackedObject = "NONE"; // "SUN", "MERCURY", "VENUS", "EARTH", "MARS", "JUPITER", "NONE"
     private float trackingZoomDistance = 1.0f; // MULTIPLIER FOR VIEWING DISTANCE
     
     // Getters
@@ -161,7 +161,7 @@ public class Camera {
         System.out.println("Camera tracking: " + objectName);
     }
     
-    public void updateTracking(Vector3f sunPos, Vector3f mercuryPos, Vector3f venusPos, Vector3f earthPos, Vector3f marsPos) {
+    public void updateTracking(Vector3f sunPos, Vector3f mercuryPos, Vector3f venusPos, Vector3f earthPos, Vector3f marsPos, Vector3f jupiterPos) {
         if (!trackingEnabled || "NONE".equals(trackedObject)) {
             return;
         }
@@ -190,6 +190,10 @@ public class Camera {
             case "MARS":
                 targetPosition.set(marsPos);
                 viewingDistance = 100.0f; // MEDIUM DISTANCE FOR MARS
+                break;
+            case "JUPITER":
+                targetPosition.set(jupiterPos);
+                viewingDistance = 300.0f; // LARGE DISTANCE FOR JUPITER (BIGGEST PLANET)
                 break;
             default:
                 return;

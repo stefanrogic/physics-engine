@@ -88,7 +88,15 @@ public class ObjectRenderer {
     
     private void createEarthBuffers() {
         Earth earth = sceneManager.getEarth();
-        createEarthBuffersWithSurface(earth);
+        
+        if (earth.isUsingOBJModel()) {
+            // OBJ model is already loaded with buffers in Earth constructor
+            System.out.println("Using OBJ model for Earth rendering");
+        } else {
+            // Fall back to procedural sphere
+            System.out.println("Using procedural sphere for Earth rendering");
+            createEarthBuffersWithSurface(earth);
+        }
     }
     
     private void createMoonBuffers() {

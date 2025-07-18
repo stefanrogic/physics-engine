@@ -32,6 +32,7 @@ public class InputHandler {
     // MARS SYSTEM BUTTONS (SECOND ROW) - REMOVED INDIVIDUAL MOON BUTTONS TO REDUCE CLUTTER
     private static final float TRACK_BUTTON_Y2 = UIManager.TRACK_BUTTON_Y2;
     private static final float MARS_BUTTON_X = UIManager.MARS_BUTTON_X;
+    private static final float JUPITER_BUTTON_X = UIManager.JUPITER_BUTTON_X;
     
     private final long windowHandle;
     private boolean mousePressed = false; // Track mouse press state
@@ -98,6 +99,10 @@ public class InputHandler {
                 break;
             case "MARS":
                 buttonX = MARS_BUTTON_X;
+                buttonY = TRACK_BUTTON_Y2;
+                break;
+            case "JUPITER":
+                buttonX = JUPITER_BUTTON_X;
                 buttonY = TRACK_BUTTON_Y2;
                 break;
             default:
@@ -172,6 +177,9 @@ public class InputHandler {
                     }
                     else if (isPointInTrackingButton(xpos[0], ypos[0], "MARS")) {
                         handler.onTrackingChange("MARS");
+                    }
+                    else if (isPointInTrackingButton(xpos[0], ypos[0], "JUPITER")) {
+                        handler.onTrackingChange("JUPITER");
                     } else {
                         // START CAMERA ROTATION
                         mousePressed = true;

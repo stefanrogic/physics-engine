@@ -27,10 +27,6 @@ public class Window implements InputHandler.InputEventHandler {
     private OrbitRenderer orbitRenderer; 
     private UIManager uiManager;
     private RenderEngine renderEngine;
-    
-    // TRACKING CONTROLS
-    private float trackingZoomDistance = 1.0f;
-    private boolean preserveCurrentCameraPosition = false;
 
     public Window(long windowHandle) {
         this.windowHandle = windowHandle;
@@ -86,9 +82,8 @@ public class Window implements InputHandler.InputEventHandler {
         
         camera.setTrackedObject(objectName);
         
-        // If we just enabled tracking and weren't tracking before, preserve current camera position
+        // If we just enabled tracking and weren't tracking before, note the change
         if (camera.isTrackingEnabled() && !wasTracking) {
-            preserveCurrentCameraPosition = true;
             System.out.println("Tracking enabled - will preserve current camera position");
         }
     }
@@ -111,10 +106,8 @@ public class Window implements InputHandler.InputEventHandler {
     
     @Override
     public void onCameraScroll(double yoffset) {
-        if (camera.isTrackingEnabled()) {
-            trackingZoomDistance *= (1.0f - (float) yoffset * 0.1f);
-            trackingZoomDistance = Math.max(0.1f, Math.min(10.0f, trackingZoomDistance));
-        }
+        // Pass scroll events to the camera for zoom handling
+        camera.handleScrollWheel(yoffset);
     }
     
     @Override
@@ -168,6 +161,9 @@ public class Window implements InputHandler.InputEventHandler {
             case "MARS":
                 targetPosition.set(sceneManager.getMars().getPosition());
                 break;
+            case "JUPITER":
+                targetPosition.set(sceneManager.getJupiter().getPosition());
+                break;
             default:
                 return null;
         }
@@ -192,54 +188,34 @@ public class Window implements InputHandler.InputEventHandler {
         switch (camera.getTrackedObject()) {
             case "SUN":
                 targetPosition.set(0, 0, 0); // SUN IS AT ORIGIN
-                viewingDistance = 69.6f * 3.0f; // 3x SUN RADIUS (69.6 units)
+                viewingDistance = 69.6f * 2.5f; // 2.5x SUN RADIUS - closer for better detail
                 break;
             case "MERCURY":
                 targetPosition.set(sceneManager.getMercury().getPosition());
-                viewingDistance = 0.24f * 8.0f; // 8x MERCURY RADIUS (0.24 units) - CLOSER FOR TINY PLANET
+                viewingDistance = 0.24f * 15.0f; // 15x MERCURY RADIUS - closer for tiny planet
                 break;
             case "VENUS":
                 targetPosition.set(sceneManager.getVenus().getPosition());
-                viewingDistance = 0.605f * 5.0f; // 5x VENUS RADIUS (0.605 units)
+                viewingDistance = 0.605f * 8.0f; // 8x VENUS RADIUS - closer for better detail
                 break;
             case "EARTH":
                 targetPosition.set(sceneManager.getEarth().getPosition());
-                viewingDistance = 0.637f * 5.0f; // 5x EARTH RADIUS (0.637 units)
+                viewingDistance = 0.637f * 8.0f; // 8x EARTH RADIUS - closer for better detail
                 break;
             case "MARS":
                 targetPosition.set(sceneManager.getMars().getPosition());
-                viewingDistance = 0.339f * 6.0f; // 6x MARS RADIUS (0.339 units) - CLOSER FOR SMALLER PLANET
+                viewingDistance = 0.339f * 12.0f; // 12x MARS RADIUS - closer for smaller planet
+                break;
+            case "JUPITER":
+                targetPosition.set(sceneManager.getJupiter().getPosition());
+                viewingDistance = 6.991f * 125.0f; // 125x JUPITER RADIUS - further back for better full planet view
                 break;
             default:
                 return;
         }
         
-        // IF WE NEED TO PRESERVE CURRENT CAMERA POSITION, CALCULATE DISTANCE AND ANGLES FROM CURRENT POSITION
-        if (preserveCurrentCameraPosition) {
-            preserveCurrentCameraPosition = false; // Reset flag
-            
-            // Calculate current distance and angles to target
-            float currentDeltaX = camera.getX() - targetPosition.x;
-            float currentDeltaY = camera.getY() - targetPosition.y;
-            float currentDeltaZ = camera.getZ() - targetPosition.z;
-            float currentDistance = (float) Math.sqrt(currentDeltaX * currentDeltaX + currentDeltaY * currentDeltaY + currentDeltaZ * currentDeltaZ);
-            
-            // Set a reasonable maximum viewing distance (10x the base distance)
-            float maxDistance = viewingDistance * 10.0f;
-            if (currentDistance > maxDistance) {
-                currentDistance = maxDistance;
-            }
-            
-            // Set tracking zoom distance to maintain current distance (but capped)
-            trackingZoomDistance = currentDistance / viewingDistance;
-            
-            System.out.println("Preserved camera position - distance: " + String.format("%.1f", currentDistance) + 
-                             ", zoom: " + String.format("%.2f", trackingZoomDistance) + " (max: " + String.format("%.1f", maxDistance) + ")");
-            return; // Don't move camera this frame, let it stay where it is
-        }
-        
         // APPLY ZOOM MULTIPLIER
-        viewingDistance *= trackingZoomDistance;
+        viewingDistance *= camera.getTrackingZoomDistance();
         
         // CALCULATE CAMERA POSITION USING SPHERICAL COORDINATES AROUND TARGET
         // USE CURRENT YAW AND PITCH TO MAINTAIN ORBITAL CAMERA POSITION

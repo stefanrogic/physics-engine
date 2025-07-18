@@ -31,6 +31,11 @@ public class AstronomicalCalculator {
     private static final double MARS_LONGITUDE_OF_PERIHELION = 336.041; // DEGREES
     private static final double MARS_MEAN_MOTION = 0.52403840; // DEGREES PER DAY
     
+    // JUPITER ORBITAL ELEMENTS
+    private static final double JUPITER_MEAN_LONGITUDE = 34.351; // DEGREES AT J2000.0
+    private static final double JUPITER_LONGITUDE_OF_PERIHELION = 14.331; // DEGREES
+    private static final double JUPITER_MEAN_MOTION = 0.08308529; // DEGREES PER DAY
+    
     /**
      * CALCULATE CURRENT ORBITAL ANGLE FOR A PLANET BASED ON CURRENT DATE
      */
@@ -60,6 +65,11 @@ public class AstronomicalCalculator {
                 meanLongitude = MARS_MEAN_LONGITUDE;
                 longitudeOfPerihelion = MARS_LONGITUDE_OF_PERIHELION;
                 meanMotion = MARS_MEAN_MOTION;
+                break;
+            case "JUPITER":
+                meanLongitude = JUPITER_MEAN_LONGITUDE;
+                longitudeOfPerihelion = JUPITER_LONGITUDE_OF_PERIHELION;
+                meanMotion = JUPITER_MEAN_MOTION;
                 break;
             default:
                 throw new IllegalArgumentException("Unknown planet: " + planetName);
