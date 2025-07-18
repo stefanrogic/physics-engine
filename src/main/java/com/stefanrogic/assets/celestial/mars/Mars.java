@@ -87,8 +87,5 @@ public class Mars {
     }
     
     // GETTERS FOR ORBITAL DATA
-    public float getOrbitalPeriod() { return ORBITAL_PERIOD; }
-    public float getCurrentAngle() { return currentAngle; }
-    public float getRotationPeriod() { return ROTATION_PERIOD; }
     public float getRotationAngle() { return rotationAngle; }
 }

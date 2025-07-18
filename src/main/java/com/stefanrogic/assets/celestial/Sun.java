@@ -61,6 +61,5 @@ public class Sun {
     }
     
     // GETTERS FOR ROTATION DATA
-    public float getRotationPeriod() { return ROTATION_PERIOD; }
     public float getRotationAngle() { return rotationAngle; }
 }

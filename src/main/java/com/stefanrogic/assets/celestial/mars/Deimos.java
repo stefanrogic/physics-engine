@@ -19,8 +19,7 @@ public class Deimos {
     private static final float DEIMOS_TIME_SCALE = 0.05f; // SLOW DOWN DEIMOS MOTION SIGNIFICANTLY FOR OBSERVATION (5% SPEED)
     private float currentAngle; // CURRENT ORBITAL ANGLE IN RADIANS
     
-    // ROTATION DATA (DEIMOS IS TIDALLY LOCKED)
-    private static final float ROTATION_PERIOD = 1.26f; // ROTATION PERIOD EQUALS ORBITAL PERIOD
+    // ROTATION DATA (DEIMOS IS TIDALLY LOCKED - SAME FACE ALWAYS TOWARD MARS)
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     // REFERENCE TO MARS FOR ORBITAL CALCULATIONS
@@ -97,8 +96,5 @@ public class Deimos {
     }
     
     // GETTERS FOR ORBITAL DATA
-    public float getOrbitalPeriod() { return ORBITAL_PERIOD; }
-    public float getCurrentAngle() { return currentAngle; }
-    public float getRotationPeriod() { return ROTATION_PERIOD; }
     public float getRotationAngle() { return rotationAngle; }
 }

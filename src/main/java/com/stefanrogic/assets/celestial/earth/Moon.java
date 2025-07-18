@@ -2,7 +2,6 @@ package com.stefanrogic.assets.celestial.earth;
 
 import org.joml.Vector3f;
 import com.stefanrogic.assets.Sphere;
-import com.stefanrogic.assets.ProceduralSphere;
 
 public class Moon {
     private Sphere sphere;
@@ -21,7 +20,6 @@ public class Moon {
     private float currentAngle; // CURRENT ORBITAL ANGLE IN RADIANS
     
     // ROTATION DATA (MOON IS TIDALLY LOCKED - SAME FACE ALWAYS TOWARD EARTH)
-    private static final float ROTATION_PERIOD = 27.3f; // MOON'S ROTATION PERIOD EQUALS ORBITAL PERIOD
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     // REFERENCE TO EARTH FOR ORBITAL CALCULATIONS
@@ -194,8 +192,5 @@ public class Moon {
     }
     
     // GETTERS FOR ORBITAL DATA
-    public float getOrbitalPeriod() { return ORBITAL_PERIOD; }
-    public float getCurrentAngle() { return currentAngle; }
-    public float getRotationPeriod() { return ROTATION_PERIOD; }
     public float getRotationAngle() { return rotationAngle; }
 }

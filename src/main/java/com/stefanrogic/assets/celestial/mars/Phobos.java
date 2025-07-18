@@ -19,8 +19,7 @@ public class Phobos {
     private static final float PHOBOS_TIME_SCALE = 0.02f; // SLOW DOWN PHOBOS MOTION SIGNIFICANTLY FOR OBSERVATION (2% SPEED)
     private float currentAngle; // CURRENT ORBITAL ANGLE IN RADIANS
     
-    // ROTATION DATA (PHOBOS IS TIDALLY LOCKED)
-    private static final float ROTATION_PERIOD = 0.32f; // ROTATION PERIOD EQUALS ORBITAL PERIOD
+    // ROTATION DATA (PHOBOS IS TIDALLY LOCKED - SAME FACE ALWAYS TOWARD MARS)
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     // REFERENCE TO MARS FOR ORBITAL CALCULATIONS
@@ -97,8 +96,5 @@ public class Phobos {
     }
     
     // GETTERS FOR ORBITAL DATA
-    public float getOrbitalPeriod() { return ORBITAL_PERIOD; }
-    public float getCurrentAngle() { return currentAngle; }
-    public float getRotationPeriod() { return ROTATION_PERIOD; }
     public float getRotationAngle() { return rotationAngle; }
 }
