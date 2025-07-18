@@ -5,6 +5,7 @@ import static org.lwjgl.glfw.GLFW.*;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.lwjgl.glfw.GLFWVidMode;
 
 import com.stefanrogic.core.input.InputHandler;
 import com.stefanrogic.core.input.Camera;
@@ -21,6 +22,13 @@ public class Window implements InputHandler.InputEventHandler {
     private final Camera camera;
     private final InputHandler inputHandler;
     private final SceneManager sceneManager;
+    
+    // Window management state
+    private boolean isFullscreen = true;
+    private int windowedWidth = 1280;
+    private int windowedHeight = 720;
+    private int windowedPosX = 100;
+    private int windowedPosY = 100;
     
     // NEW COMPONENT ARCHITECTURE  
     private ObjectRenderer objectRenderer;
@@ -48,7 +56,7 @@ public class Window implements InputHandler.InputEventHandler {
         // INITIALIZE NEW COMPONENTS
         this.objectRenderer = new ObjectRenderer(sceneManager);
         this.orbitRenderer = new OrbitRenderer(sceneManager, shaders);
-        this.uiManager = new UIManager(shaders, camera, sceneManager);
+        this.uiManager = new UIManager(shaders, camera, sceneManager, this);
         this.renderEngine = new RenderEngine(sceneManager, shaders, camera);
         
         glEnable(GL_DEPTH_TEST);
@@ -68,7 +76,8 @@ public class Window implements InputHandler.InputEventHandler {
     // Interface implementations for InputHandler.InputEventHandler
     @Override
     public void onGridToggle() {
-        uiManager.setGridVisible(!uiManager.isGridVisible());
+        // Grid permanently disabled - no action needed
+        // uiManager.setGridVisible(!uiManager.isGridVisible());
     }
     
     @Override
@@ -87,6 +96,11 @@ public class Window implements InputHandler.InputEventHandler {
         if (camera.isTrackingEnabled() && !wasTracking) {
             System.out.println("Tracking enabled - will preserve current camera position");
         }
+    }
+    
+    @Override
+    public void onFullscreenToggle() {
+        toggleFullscreen();
     }
     
     @Override
@@ -189,27 +203,27 @@ public class Window implements InputHandler.InputEventHandler {
         switch (camera.getTrackedObject()) {
             case "SUN":
                 targetPosition.set(0, 0, 0); // SUN IS AT ORIGIN
-                viewingDistance = 69.6f * 2.5f; // 2.5x SUN RADIUS - closer for better detail
+                viewingDistance = 69.6f * 15.0f; // 15x SUN RADIUS - good viewing distance
                 break;
             case "MERCURY":
                 targetPosition.set(sceneManager.getMercury().getPosition());
-                viewingDistance = 0.24f * 15.0f; // 15x MERCURY RADIUS - closer for tiny planet
+                viewingDistance = 0.24f * 100.0f; // 100x MERCURY RADIUS - better viewing distance
                 break;
             case "VENUS":
                 targetPosition.set(sceneManager.getVenus().getPosition());
-                viewingDistance = 0.605f * 8.0f; // 8x VENUS RADIUS - closer for better detail
+                viewingDistance = 0.605f * 50.0f; // 50x VENUS RADIUS - good viewing distance
                 break;
             case "EARTH":
                 targetPosition.set(sceneManager.getEarth().getPosition());
-                viewingDistance = 0.637f * 8.0f; // 8x EARTH RADIUS - closer for better detail
+                viewingDistance = 0.637f * 50.0f; // 50x EARTH RADIUS - good viewing distance
                 break;
             case "MARS":
                 targetPosition.set(sceneManager.getMars().getPosition());
-                viewingDistance = 0.339f * 12.0f; // 12x MARS RADIUS - closer for smaller planet
+                viewingDistance = 0.339f * 75.0f; // 75x MARS RADIUS - good viewing distance for smaller planet
                 break;
             case "JUPITER":
                 targetPosition.set(sceneManager.getJupiter().getPosition());
-                viewingDistance = 6.991f * 125.0f; // 125x JUPITER RADIUS - further back for better full planet view
+                viewingDistance = 6.991f * 200.0f; // 200x JUPITER RADIUS - good viewing distance for large planet
                 break;
             default:
                 return;
@@ -286,5 +300,50 @@ public class Window implements InputHandler.InputEventHandler {
     
     public boolean shouldClose() {
         return glfwWindowShouldClose(windowHandle);
+    }
+    
+    /**
+     * Toggle between fullscreen and windowed mode
+     */
+    public void toggleFullscreen() {
+        if (isFullscreen) {
+            // Switch to windowed mode
+            setWindowedMode();
+        } else {
+            // Switch to fullscreen mode
+            setFullscreenMode();
+        }
+    }
+    
+    /**
+     * Set fullscreen mode
+     */
+    private void setFullscreenMode() {
+        long primaryMonitor = glfwGetPrimaryMonitor();
+        GLFWVidMode videoMode = glfwGetVideoMode(primaryMonitor);
+        
+        if (videoMode != null) {
+            glfwSetWindowMonitor(windowHandle, primaryMonitor, 0, 0, 
+                                videoMode.width(), videoMode.height(), videoMode.refreshRate());
+            isFullscreen = true;
+            System.out.println("Switched to fullscreen mode: " + videoMode.width() + "x" + videoMode.height());
+        }
+    }
+    
+    /**
+     * Set windowed mode (720p)
+     */
+    private void setWindowedMode() {
+        glfwSetWindowMonitor(windowHandle, 0, windowedPosX, windowedPosY, 
+                            windowedWidth, windowedHeight, 0);
+        isFullscreen = false;
+        System.out.println("Switched to windowed mode: " + windowedWidth + "x" + windowedHeight);
+    }
+    
+    /**
+     * Get current fullscreen state
+     */
+    public boolean isFullscreen() {
+        return isFullscreen;
     }
 }

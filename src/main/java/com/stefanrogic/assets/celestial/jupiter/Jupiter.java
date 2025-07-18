@@ -32,6 +32,7 @@ public class Jupiter {
     
     // ROTATION DATA
     private static final float ROTATION_PERIOD = 0.41f; // JUPITER'S ROTATION PERIOD IN EARTH DAYS (~9.9 HOURS)
+    private static final float AXIAL_TILT = 3.1f; // JUPITER'S AXIAL TILT IN DEGREES
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     public Jupiter() {
@@ -119,6 +120,11 @@ public class Jupiter {
      * Get the current rotation angle for rendering
      */
     public float getRotationAngle() { return rotationAngle; }
+
+    /**
+     * Get Jupiter's axial tilt in degrees
+     */
+    public float getAxialTilt() { return AXIAL_TILT; }
     
     /**
      * Get the sphere object for procedural rendering

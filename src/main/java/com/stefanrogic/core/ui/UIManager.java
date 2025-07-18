@@ -3,6 +3,7 @@ package com.stefanrogic.core.ui;
 import com.stefanrogic.core.rendering.ShaderManager;
 import com.stefanrogic.core.input.Camera;
 import com.stefanrogic.core.scene.SceneManager;
+import com.stefanrogic.core.window.Window;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
@@ -22,6 +23,9 @@ public class UIManager {
     private Camera camera;
     private SceneManager sceneManager;
     
+    // Notification manager for displaying tracking status
+    private NotificationManager notificationManager;
+    
     // UI ELEMENTS
     private int uiVAO, uiVBO;
     private int pauseButtonVAO, pauseButtonVBO;
@@ -37,6 +41,9 @@ public class UIManager {
     private int marsButtonVAO, marsButtonVBO;
     private int jupiterButtonVAO, jupiterButtonVBO;
     
+    // FULLSCREEN BUTTON VAO
+    private int fullscreenButtonVAO, fullscreenButtonVBO;
+    
     // UI BUTTON COORDINATES - GRID BUTTON
     public static final float BUTTON_X = 20.0f;
     public static final float BUTTON_Y = 20.0f;
@@ -48,6 +55,12 @@ public class UIManager {
     public static final float PAUSE_BUTTON_Y = 20.0f;
     public static final float PAUSE_BUTTON_WIDTH = 40.0f;
     public static final float PAUSE_BUTTON_HEIGHT = 40.0f;
+    
+    // UI BUTTON COORDINATES - FULLSCREEN BUTTON (TOP RIGHT)
+    public static final float FULLSCREEN_BUTTON_WIDTH = 40.0f;
+    public static final float FULLSCREEN_BUTTON_HEIGHT = 40.0f;
+    public static final float FULLSCREEN_BUTTON_MARGIN = 20.0f; // From edge
+    // Note: FULLSCREEN_BUTTON_X and FULLSCREEN_BUTTON_Y are calculated dynamically based on window size
     
     // UI BUTTON COORDINATES - TRACKING BUTTONS (ROW BELOW)
     public static final float TRACK_BUTTON_WIDTH = 30.0f;
@@ -63,12 +76,14 @@ public class UIManager {
     public static final float JUPITER_BUTTON_X = 55.0f;
     
     // UI state
+    // Grid visibility (disabled permanently)
     private boolean gridVisible = false;
     
-    public UIManager(ShaderManager.ShaderPrograms shaders, Camera camera, SceneManager sceneManager) {
+    public UIManager(ShaderManager.ShaderPrograms shaders, Camera camera, SceneManager sceneManager, Window window) {
         this.shaders = shaders;
         this.camera = camera;
         this.sceneManager = sceneManager;
+        this.notificationManager = new NotificationManager(camera);
     }
     
     /**
@@ -81,6 +96,7 @@ public class UIManager {
         createPlayIcon();
         createTrackingButtons();
         createTrackingButtonLabels();
+        createFullscreenButton();
     }
     
     private void createMainButtons() {
@@ -331,6 +347,34 @@ public class UIManager {
         System.out.println("Tracking buttons created: Sun (S), Mercury (M), Venus (V), Earth (E), Jupiter (J)");
     }
     
+    private void createFullscreenButton() {
+        // CREATE FULLSCREEN BUTTON (2D QUAD)
+        // Position will be calculated dynamically in renderUI based on window size
+        float[] fullscreenButtonVertices = {
+            // FULLSCREEN BUTTON RECTANGLE (X, Y COORDINATES) - placeholder values
+            0.0f, 0.0f,                           // BOTTOM LEFT
+            FULLSCREEN_BUTTON_WIDTH, 0.0f,       // BOTTOM RIGHT
+            FULLSCREEN_BUTTON_WIDTH, FULLSCREEN_BUTTON_HEIGHT,  // TOP RIGHT
+            0.0f, FULLSCREEN_BUTTON_HEIGHT       // TOP LEFT
+        };
+        
+        fullscreenButtonVAO = glGenVertexArrays();
+        fullscreenButtonVBO = glGenBuffers();
+        
+        glBindVertexArray(fullscreenButtonVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, fullscreenButtonVBO);
+        
+        FloatBuffer fullscreenVertexBuffer = BufferUtils.createFloatBuffer(fullscreenButtonVertices.length);
+        fullscreenVertexBuffer.put(fullscreenButtonVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, fullscreenVertexBuffer, GL_STATIC_DRAW);
+        
+        // POSITION ATTRIBUTE (LOCATION = 0) - 2D COORDINATES
+        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
     /**
      * Render all UI elements
      */
@@ -391,6 +435,12 @@ public class UIManager {
         
         // RENDER TRACKING BUTTONS
         renderTrackingButtons();
+        
+        // RENDER FULLSCREEN BUTTON
+        renderFullscreenButton(windowWidth, windowHeight);
+        
+        // RENDER NOTIFICATIONS (tracking status)
+        notificationManager.renderNotifications(windowWidth, windowHeight);
         
         // RE-ENABLE DEPTH TESTING
         glEnable(GL_DEPTH_TEST);
@@ -453,6 +503,76 @@ public class UIManager {
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
     
+    private void renderFullscreenButton(int windowWidth, int windowHeight) {
+        // Calculate position for top-right corner
+        float buttonX = windowWidth - FULLSCREEN_BUTTON_WIDTH - FULLSCREEN_BUTTON_MARGIN;
+        float buttonY = windowHeight - FULLSCREEN_BUTTON_HEIGHT - FULLSCREEN_BUTTON_MARGIN;
+        
+        // Update the button position dynamically
+        float[] fullscreenButtonVertices = {
+            buttonX, buttonY,                                      // BOTTOM LEFT
+            buttonX + FULLSCREEN_BUTTON_WIDTH, buttonY,           // BOTTOM RIGHT
+            buttonX + FULLSCREEN_BUTTON_WIDTH, buttonY + FULLSCREEN_BUTTON_HEIGHT,  // TOP RIGHT
+            buttonX, buttonY + FULLSCREEN_BUTTON_HEIGHT           // TOP LEFT
+        };
+        
+        // Update the buffer with new position
+        glBindBuffer(GL_ARRAY_BUFFER, fullscreenButtonVBO);
+        FloatBuffer fullscreenVertexBuffer = BufferUtils.createFloatBuffer(fullscreenButtonVertices.length);
+        fullscreenVertexBuffer.put(fullscreenButtonVertices).flip();
+        glBufferSubData(GL_ARRAY_BUFFER, 0, fullscreenVertexBuffer);
+        
+        // Set transparent gray color
+        glUniform3f(shaders.uiColorLocation, 0.5f, 0.5f, 0.5f); // TRANSPARENT GRAY
+        
+        // Render button background
+        glBindVertexArray(fullscreenButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // Render fullscreen icon (simple squares pattern)
+        renderFullscreenIcon(buttonX, buttonY, FULLSCREEN_BUTTON_WIDTH, FULLSCREEN_BUTTON_HEIGHT);
+    }
+    
+    private void renderFullscreenIcon(float buttonX, float buttonY, float buttonWidth, float buttonHeight) {
+        // Create a simple fullscreen icon with two squares pattern
+        float iconMargin = 4.0f;
+        float squareSize = (buttonWidth - iconMargin * 3) / 2;
+        
+        // Set icon color to white for visibility
+        glUniform3f(shaders.uiColorLocation, 1.0f, 1.0f, 1.0f);
+        
+        // Top-left square
+        float[] square1 = {
+            buttonX + iconMargin, buttonY + iconMargin,
+            buttonX + iconMargin + squareSize, buttonY + iconMargin,
+            buttonX + iconMargin + squareSize, buttonY + iconMargin + squareSize,
+            buttonX + iconMargin, buttonY + iconMargin + squareSize
+        };
+        
+        // Bottom-right square
+        float[] square2 = {
+            buttonX + iconMargin * 2 + squareSize, buttonY + iconMargin * 2 + squareSize,
+            buttonX + buttonWidth - iconMargin, buttonY + iconMargin * 2 + squareSize,
+            buttonX + buttonWidth - iconMargin, buttonY + buttonHeight - iconMargin,
+            buttonX + iconMargin * 2 + squareSize, buttonY + buttonHeight - iconMargin
+        };
+        
+        // Render first square
+        glBindBuffer(GL_ARRAY_BUFFER, fullscreenButtonVBO);
+        FloatBuffer square1Buffer = BufferUtils.createFloatBuffer(square1.length);
+        square1Buffer.put(square1).flip();
+        glBufferSubData(GL_ARRAY_BUFFER, 0, square1Buffer);
+        glBindVertexArray(fullscreenButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+        
+        // Render second square
+        FloatBuffer square2Buffer = BufferUtils.createFloatBuffer(square2.length);
+        square2Buffer.put(square2).flip();
+        glBufferSubData(GL_ARRAY_BUFFER, 0, square2Buffer);
+        glBindVertexArray(fullscreenButtonVAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    }
+    
     // Getters for state
     public boolean isGridVisible() {
         return gridVisible;
@@ -488,5 +608,14 @@ public class UIManager {
         glDeleteBuffers(earthButtonVBO);
         glDeleteVertexArrays(marsButtonVAO);
         glDeleteBuffers(marsButtonVBO);
+        
+        // Clean up fullscreen button
+        glDeleteVertexArrays(fullscreenButtonVAO);
+        glDeleteBuffers(fullscreenButtonVBO);
+        
+        // Clean up notification manager
+        if (notificationManager != null) {
+            notificationManager.cleanup();
+        }
     }
 }

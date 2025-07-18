@@ -21,6 +21,7 @@ public class Venus {
     
     // ROTATION DATA
     private static final float ROTATION_PERIOD = -243.0f; // VENUS'S ROTATION PERIOD IN EARTH DAYS (NEGATIVE = RETROGRADE)
+    private static final float AXIAL_TILT = 177.4f; // VENUS AXIAL TILT IN DEGREES (NEARLY UPSIDE DOWN)
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     public Venus() {
@@ -91,4 +92,9 @@ public class Venus {
     
     // GETTERS FOR ORBITAL DATA
     public float getRotationAngle() { return rotationAngle; }
+    
+    /**
+     * Get Venus's axial tilt in degrees
+     */
+    public float getAxialTilt() { return AXIAL_TILT; }
 }

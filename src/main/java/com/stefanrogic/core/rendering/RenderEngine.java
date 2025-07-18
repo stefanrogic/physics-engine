@@ -219,12 +219,20 @@ public class RenderEngine {
         Vector3f position = getPlanetPosition(planet);
         Vector3f color = getPlanetColor(planet);
         float rotationAngle = getPlanetRotationAngle(planet);
+        float axialTilt = getPlanetAxialTilt(planet);
         int vao = getPlanetVAO(planet);
         int indexCount = getPlanetIndexCount(planet);
         
         // CREATE TRANSFORMATION MATRIX
         Matrix4f planetModel = new Matrix4f();
         planetModel.translate(position);
+        
+        // Apply axial tilt (rotation around X-axis) if planet has one
+        if (axialTilt != 0.0f) {
+            planetModel.rotateX((float) Math.toRadians(axialTilt));
+        }
+        
+        // Apply planet's rotation around Y-axis
         planetModel.rotateY(rotationAngle);
         
         Matrix4f planetMVP = new Matrix4f();
@@ -319,21 +327,24 @@ public class RenderEngine {
         
         Vector3f position = jupiter.getPosition();
         float rotationAngle = jupiter.getRotationAngle();
+        float axialTilt = jupiter.getAxialTilt();
         
         // CREATE TRANSFORMATION MATRIX
         Matrix4f jupiterModel = new Matrix4f();
         jupiterModel.translate(position);
         
-        // Apply corrective rotation to fix Jupiter OBJ model orientation
-        // The model's north pole needs to point along Y-axis instead of toward the Sun
-        jupiterModel.rotateX((float) Math.toRadians(90.0f)); // Rotate so north pole points up
+        // Apply axial tilt (rotation around X-axis)
+        jupiterModel.rotateX((float) Math.toRadians(axialTilt));
         
-        // Apply Jupiter's rotation around Y-axis (now properly oriented)
+        // Apply Jupiter's rotation around Y-axis first
         jupiterModel.rotateY(rotationAngle);
         
+        // Fix the OBJ model's pole orientation (model file has wrong pole direction)
+        jupiterModel.rotateX((float) Math.toRadians(90.0f)); // Correct the pole orientation
+        
         // Scale the model to match Jupiter's radius
-        // Jupiter OBJ model has radius of about 487.341 units, but we want 6.991 units
-        float scale = jupiter.getRadius() / 487.341f; // Scale from OBJ model size to intended size
+        // Jupiter OBJ model has radius of about 487 units, but we want 6.991 units
+        float scale = jupiter.getRadius() / 487.0f; // Scale from OBJ model size to intended size
         jupiterModel.scale(scale);
         
         Matrix4f jupiterMVP = new Matrix4f();
@@ -481,6 +492,17 @@ public class RenderEngine {
             case Phobos phobos -> phobos.getRotationAngle();
             case Deimos deimos -> deimos.getRotationAngle();
             default -> 0.0f;
+        };
+    }
+
+    private float getPlanetAxialTilt(Object planet) {
+        return switch (planet) {
+            case Jupiter jupiter -> jupiter.getAxialTilt();
+            case Earth earth -> earth.getAxialTilt();
+            case Mars mars -> mars.getAxialTilt();
+            case Venus venus -> venus.getAxialTilt();
+            // Add other planets here when they have axial tilt implemented
+            default -> 0.0f; // No axial tilt for planets that don't have it implemented yet
         };
     }
     
