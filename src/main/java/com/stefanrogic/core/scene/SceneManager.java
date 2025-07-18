@@ -3,6 +3,7 @@ package com.stefanrogic.core.scene;
 import com.stefanrogic.assets.celestial.*;
 import com.stefanrogic.assets.celestial.earth.*;
 import com.stefanrogic.assets.celestial.mars.*;
+import com.stefanrogic.assets.celestial.jupiter.Jupiter;
 import org.joml.Vector3f;
 
 /**
@@ -43,6 +44,12 @@ public class SceneManager {
     public Phobos getPhobos() { return phobos; }
     public Deimos getDeimos() { return deimos; }
     public Jupiter getJupiter() { return jupiter; }
+    
+    // Jupiter's moons
+    public com.stefanrogic.assets.celestial.jupiter.Io getIo() { return jupiter != null ? jupiter.getIo() : null; }
+    public com.stefanrogic.assets.celestial.jupiter.Europa getEuropa() { return jupiter != null ? jupiter.getEuropa() : null; }
+    public com.stefanrogic.assets.celestial.jupiter.Ganymede getGanymede() { return jupiter != null ? jupiter.getGanymede() : null; }
+    public com.stefanrogic.assets.celestial.jupiter.Callisto getCallisto() { return jupiter != null ? jupiter.getCallisto() : null; }
     
     public boolean isOrbitalMotionPaused() { return orbitalMotionPaused; }
     

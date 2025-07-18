@@ -12,7 +12,7 @@ public class Mars {
     
     // MARS DATA (SCALE: 1 UNIT = 10,000 KM)
     private static final float MARS_RADIUS = 0.339f; // 3,390 KM ACTUAL RADIUS (REALISTIC SCALE)
-    private static final float DISTANCE_FROM_SUN = 22790.0f; // 227.9 MILLION KM ACTUAL DISTANCE
+    private static final float DISTANCE_FROM_SUN = 22790.0f; // 227.9 MILLION KM ACTUAL DISTANCE (FROM SUN CENTER)
     private static final int SPHERE_DETAIL = 20; // GOOD DETAIL FOR MARS
     
     // ORBITAL DATA

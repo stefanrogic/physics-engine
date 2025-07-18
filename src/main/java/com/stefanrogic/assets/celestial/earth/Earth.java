@@ -23,7 +23,7 @@ public class Earth {
     
     // EARTH DATA (SCALE: 1 UNIT = 10,000 KM)
     private static final float EARTH_RADIUS = 0.637f; // 6,371 KM ACTUAL RADIUS (REALISTIC SCALE)
-    private static final float DISTANCE_FROM_SUN = 14960.0f; // 149.6 MILLION KM ACTUAL DISTANCE (1 AU)
+    private static final float DISTANCE_FROM_SUN = 14960.0f; // 149.6 MILLION KM ACTUAL DISTANCE (1 AU FROM SUN CENTER)
     private static final int SPHERE_DETAIL = 24; // HIGHEST DETAIL FOR HOME PLANET
     
     // ORBITAL DATA

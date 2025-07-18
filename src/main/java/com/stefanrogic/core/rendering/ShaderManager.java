@@ -32,6 +32,7 @@ public class ShaderManager {
         public int sunShaderProgram;
         public int planetShaderProgram;
         public int surfaceShaderProgram; // NEW SHADER FOR SURFACE VARIATIONS
+        public int starShaderProgram; // NEW SHADER FOR STAR FIELD
         public int uiShaderProgram;
         
         public int gridMvpLocation;
@@ -42,6 +43,7 @@ public class ShaderManager {
         public int planetBumpTextureLocation, planetUseBumpLocation;
         public int planetNightLightsTextureLocation, planetUseNightLightsLocation;
         public int surfaceMvpLocation, surfaceModelLocation, surfaceSunPosLocation; // NEW LOCATIONS
+        public int starMvpLocation; // NEW LOCATION FOR STAR SHADER
         public int uiMvpLocation, uiColorLocation;
         
         public ShaderPrograms() {
@@ -63,27 +65,37 @@ public class ShaderManager {
                 }
                 """;
             
-            // SUN SHADER - NO LIGHTING, JUST EMISSIVE GLOW
+            // SUN SHADER - NO LIGHTING, JUST EMISSIVE GLOW WITH TEXTURE
             String sunVertexShader = """
                 #version 330 core
                 layout (location = 0) in vec3 aPos;
+                layout (location = 1) in vec3 aNormal;
+                layout (location = 2) in vec2 aTexCoord;
                 
                 uniform mat4 mvpMatrix;
                 
+                out vec2 TexCoord;
+                
                 void main() {
                     gl_Position = mvpMatrix * vec4(aPos, 1.0);
+                    TexCoord = aTexCoord;
                 }
                 """;
             
             String sunFragmentShader = """
                 #version 330 core
+                in vec2 TexCoord;
                 out vec4 FragColor;
                 
                 uniform vec3 sunColor;
+                uniform sampler2D diffuseTexture;
                 
                 void main() {
-                    // SUN RADIATES LIGHT - UNIFORM BRIGHT COLOR
-                    FragColor = vec4(sunColor, 1.0);
+                    // Sample the Sun texture
+                    vec4 texColor = texture(diffuseTexture, TexCoord);
+                    
+                    // Combine with sun color and make it bright (emissive)
+                    FragColor = vec4(texColor.rgb * sunColor * 1.5, 1.0);
                 }
                 """;
             
@@ -305,11 +317,50 @@ public class ShaderManager {
                 }
                 """;
             
+            // STAR SHADER - FOR DISTANT STAR FIELD
+            String starVertexShader = """
+                #version 330 core
+                layout (location = 0) in vec3 aPos;
+                layout (location = 1) in float aSize;
+                layout (location = 2) in vec3 aColor;
+                
+                uniform mat4 mvpMatrix;
+                
+                out vec3 starColor;
+                
+                void main() {
+                    gl_Position = mvpMatrix * vec4(aPos, 1.0);
+                    gl_PointSize = aSize;
+                    starColor = aColor;
+                }
+                """;
+            
+            String starFragmentShader = """
+                #version 330 core
+                in vec3 starColor;
+                out vec4 FragColor;
+                
+                void main() {
+                    // Create a circular star shape
+                    vec2 coord = gl_PointCoord - vec2(0.5, 0.5);
+                    float dist = length(coord);
+                    
+                    // Fade out at edges for softer star appearance
+                    float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                    
+                    // Add slight glow effect
+                    alpha = pow(alpha, 0.8);
+                    
+                    FragColor = vec4(starColor, alpha);
+                }
+                """;
+            
             // Compile all shaders
             gridShaderProgram = createShaderProgram(gridVertexShader, gridFragmentShader);
             sunShaderProgram = createShaderProgram(sunVertexShader, sunFragmentShader);
             planetShaderProgram = createShaderProgram(planetVertexShader, planetFragmentShader);
             surfaceShaderProgram = createShaderProgram(surfaceVertexShader, surfaceFragmentShader);
+            starShaderProgram = createShaderProgram(starVertexShader, starFragmentShader);
             uiShaderProgram = createShaderProgram(uiVertexShader, uiFragmentShader);
             
             // Get uniform locations
@@ -331,6 +382,7 @@ public class ShaderManager {
             surfaceMvpLocation = glGetUniformLocation(surfaceShaderProgram, "mvpMatrix");
             surfaceModelLocation = glGetUniformLocation(surfaceShaderProgram, "modelMatrix");
             surfaceSunPosLocation = glGetUniformLocation(surfaceShaderProgram, "sunPosition");
+            starMvpLocation = glGetUniformLocation(starShaderProgram, "mvpMatrix");
             uiMvpLocation = glGetUniformLocation(uiShaderProgram, "mvpMatrix");
             uiColorLocation = glGetUniformLocation(uiShaderProgram, "uiColor");
         }

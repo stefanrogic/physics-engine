@@ -11,7 +11,8 @@ import org.joml.Vector3f;
 
 import com.stefanrogic.assets.celestial.Mercury;
 import com.stefanrogic.assets.celestial.Venus;
-import com.stefanrogic.assets.celestial.Jupiter;
+import com.stefanrogic.assets.celestial.Sun;
+import com.stefanrogic.assets.celestial.jupiter.Jupiter;
 import com.stefanrogic.assets.celestial.earth.Earth;
 import com.stefanrogic.assets.celestial.earth.Moon;
 import com.stefanrogic.assets.celestial.mars.Mars;
@@ -29,12 +30,14 @@ public class RenderEngine {
     private ShaderManager.ShaderPrograms shaders;
     private Camera camera;
     private GridRenderer gridRenderer;
+    private StarRenderer starRenderer;
     
     public RenderEngine(SceneManager sceneManager, ShaderManager.ShaderPrograms shaders, Camera camera) {
         this.sceneManager = sceneManager;
         this.shaders = shaders;
         this.camera = camera;
         this.gridRenderer = new GridRenderer(shaders);
+        this.starRenderer = new StarRenderer(shaders);
     }
     
     /**
@@ -45,10 +48,25 @@ public class RenderEngine {
     }
     
     /**
+     * Initialize the star field through StarRenderer
+     */
+    public void createStars() {
+        starRenderer.createStars();
+    }
+    
+    /**
      * Render the grid if visible
      */
     public void renderGrid(Matrix4f mvpMatrix, boolean gridVisible) {
         gridRenderer.renderGrid(mvpMatrix, gridVisible);
+    }
+    
+    /**
+     * Render the star field in the background
+     */
+    public void renderStars(Matrix4f mvpMatrix) {
+        // Render stars first so they appear behind everything
+        starRenderer.renderStars(mvpMatrix);
     }
     
     /**
@@ -67,14 +85,73 @@ public class RenderEngine {
         renderPhobos(projection, view);
         renderDeimos(projection, view);
         renderJupiter(projection, view);
+        
+        // RENDER JUPITER'S MOONS
+        renderIo(projection, view);
+        renderEuropa(projection, view);
+        renderGanymede(projection, view);
+        renderCallisto(projection, view);
     }
     
     private void renderSun(Matrix4f projection, Matrix4f view) {
+        Sun sun = sceneManager.getSun();
+        
+        if (sun.isUsingOBJModel()) {
+            renderSunWithOBJModel(sun, projection, view);
+        } else {
+            renderSunWithProcedural(sun, projection, view);
+        }
+    }
+    
+    /**
+     * Render Sun with OBJ model
+     */
+    private void renderSunWithOBJModel(Sun sun, Matrix4f projection, Matrix4f view) {
+        // Use sun shader program
+        glUseProgram(shaders.sunShaderProgram);
+        
+        // Set MVP matrix
+        Matrix4f mvp = new Matrix4f();
+        Matrix4f sunModel = new Matrix4f();
+        sunModel.rotateY(sun.getRotationAngle()); // ROTATE AROUND Y-AXIS
+        
+        // Scale the Sun model to match its actual radius
+        // Sun OBJ model has radius of about 20,000 units, but we want 69.6 units
+        float scale = sun.getRadius() / 20000.0f; // Scale from OBJ model size to intended size
+        sunModel.scale(scale);
+        
+        mvp.mul(projection).mul(view).mul(sunModel);
+        
+        // Set uniforms
+        int mvpLoc = glGetUniformLocation(shaders.sunShaderProgram, "mvpMatrix");
+        glUniformMatrix4fv(mvpLoc, false, mvp.get(new float[16]));
+        
+        int sunColorLoc = glGetUniformLocation(shaders.sunShaderProgram, "sunColor");
+        glUniform3f(sunColorLoc, sun.getColor().x, sun.getColor().y, sun.getColor().z);
+        
+        // Bind the Sun's texture
+        if (sun.getSunModel() != null && sun.getSunModel().getTextureId() != 0) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, sun.getSunModel().getTextureId());
+            int texLoc = glGetUniformLocation(shaders.sunShaderProgram, "diffuseTexture");
+            glUniform1i(texLoc, 0);
+        }
+        
+        // Render the OBJ model
+        if (sun.getSunModel() != null) {
+            sun.getSunModel().render();
+        }
+    }
+    
+    /**
+     * Render Sun with procedural sphere (fallback)
+     */
+    private void renderSunWithProcedural(Sun sun, Matrix4f projection, Matrix4f view) {
         glUseProgram(shaders.sunShaderProgram);
         
         // CREATE SUN TRANSFORMATION MATRIX WITH ROTATION
         Matrix4f sunModel = new Matrix4f();
-        sunModel.rotateY(sceneManager.getSun().getRotationAngle()); // ROTATE AROUND Y-AXIS
+        sunModel.rotateY(sun.getRotationAngle()); // ROTATE AROUND Y-AXIS
         
         Matrix4f sunMVP = new Matrix4f();
         projection.mul(view, sunMVP);
@@ -83,10 +160,10 @@ public class RenderEngine {
         FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
         sunMVP.get(matrixBuffer);
         glUniformMatrix4fv(shaders.sunMvpLocation, false, matrixBuffer);
-        glUniform3f(shaders.sunColorLocation, sceneManager.getSun().getColor().x, sceneManager.getSun().getColor().y, sceneManager.getSun().getColor().z);
+        glUniform3f(shaders.sunColorLocation, sun.getColor().x, sun.getColor().y, sun.getColor().z);
         
-        glBindVertexArray(sceneManager.getSun().getVAO());
-        glDrawElements(GL_TRIANGLES, sceneManager.getSun().getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(sun.getVAO());
+        glDrawElements(GL_TRIANGLES, sun.getSphere().getIndices().length, GL_UNSIGNED_INT, 0);
     }
     
     private void renderMercury(Matrix4f projection, Matrix4f view) {
@@ -254,9 +331,9 @@ public class RenderEngine {
         // Apply Jupiter's rotation around Y-axis (now properly oriented)
         jupiterModel.rotateY(rotationAngle);
         
-        // Scale the model to match Jupiter's radius (OBJ model is about 3.2 units radius)
-        // Jupiter should be much smaller than the Sun, so we need to scale it down further
-        float scale = jupiter.getRadius() / 10.0f; // Reduced scale to make Jupiter smaller than Sun
+        // Scale the model to match Jupiter's radius
+        // Jupiter OBJ model has radius of about 487.341 units, but we want 6.991 units
+        float scale = jupiter.getRadius() / 487.341f; // Scale from OBJ model size to intended size
         jupiterModel.scale(scale);
         
         Matrix4f jupiterMVP = new Matrix4f();
@@ -438,7 +515,7 @@ public class RenderEngine {
      */
     public Matrix4f createMVPMatrix(int width, int height) {
         Matrix4f projection = new Matrix4f();
-        projection.perspective((float) Math.toRadians(55.0f), (float) width / height, 1.0f, 100000.0f);
+        projection.perspective((float) Math.toRadians(55.0f), (float) width / height, 1.0f, 500000.0f);
         
         // CALCULATE LOOK-AT TARGET BASED ON CAMERA MODE
         float lookX, lookY, lookZ;
@@ -503,7 +580,7 @@ public class RenderEngine {
      */
     public Matrix4f[] getProjectionAndView(int width, int height) {
         Matrix4f projection = new Matrix4f();
-        projection.perspective((float) Math.toRadians(55.0f), (float) width / height, 1.0f, 100000.0f);
+        projection.perspective((float) Math.toRadians(55.0f), (float) width / height, 1.0f, 500000.0f);
         
         // CALCULATE LOOK-AT TARGET BASED ON CAMERA MODE
         float lookX, lookY, lookZ;
@@ -558,6 +635,46 @@ public class RenderEngine {
         view.lookAt(cameraX, cameraY, cameraZ, lookX, lookY, lookZ, 0.0f, 1.0f, 0.0f);
         
         return new Matrix4f[]{projection, view};
+    }
+    
+    /**
+     * Render Jupiter's moon Io
+     */
+    private void renderIo(Matrix4f projection, Matrix4f view) {
+        com.stefanrogic.assets.celestial.jupiter.Io io = sceneManager.getIo();
+        if (io != null) {
+            renderPlanet(io, projection, view);
+        }
+    }
+    
+    /**
+     * Render Jupiter's moon Europa
+     */
+    private void renderEuropa(Matrix4f projection, Matrix4f view) {
+        com.stefanrogic.assets.celestial.jupiter.Europa europa = sceneManager.getEuropa();
+        if (europa != null) {
+            renderPlanet(europa, projection, view);
+        }
+    }
+    
+    /**
+     * Render Jupiter's moon Ganymede
+     */
+    private void renderGanymede(Matrix4f projection, Matrix4f view) {
+        com.stefanrogic.assets.celestial.jupiter.Ganymede ganymede = sceneManager.getGanymede();
+        if (ganymede != null) {
+            renderPlanet(ganymede, projection, view);
+        }
+    }
+    
+    /**
+     * Render Jupiter's moon Callisto
+     */
+    private void renderCallisto(Matrix4f projection, Matrix4f view) {
+        com.stefanrogic.assets.celestial.jupiter.Callisto callisto = sceneManager.getCallisto();
+        if (callisto != null) {
+            renderPlanet(callisto, projection, view);
+        }
     }
     
     /**

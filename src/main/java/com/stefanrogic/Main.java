@@ -2,10 +2,9 @@ package com.stefanrogic;
 
 import com.stefanrogic.core.window.Window;
 import static org.lwjgl.glfw.GLFW.*;
+import org.lwjgl.glfw.GLFWVidMode;
 
 public class Main {
-    private static final int WINDOW_WIDTH = 1200;
-    private static final int WINDOW_HEIGHT = 800;
     private static final String WINDOW_TITLE = "The Solar System";
 
     public static void main(String[] args) {
@@ -16,14 +15,35 @@ public class Main {
             throw new IllegalStateException("Unable to initialize GLFW");
         }
         
+        // Get the primary monitor
+        long primaryMonitor = glfwGetPrimaryMonitor();
+        if (primaryMonitor == 0) {
+            glfwTerminate();
+            throw new RuntimeException("Failed to get primary monitor");
+        }
+        
+        // Get the video mode of the primary monitor
+        GLFWVidMode videoMode = glfwGetVideoMode(primaryMonitor);
+        if (videoMode == null) {
+            glfwTerminate();
+            throw new RuntimeException("Failed to get video mode");
+        }
+        
+        int screenWidth = videoMode.width();
+        int screenHeight = videoMode.height();
+        int refreshRate = videoMode.refreshRate();
+        
+        System.out.println("Native resolution: " + screenWidth + "x" + screenHeight + " @ " + refreshRate + "Hz");
+        
         // Configure GLFW
         glfwDefaultWindowHints();
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_REFRESH_RATE, refreshRate);
         
-        // Create window
-        long windowHandle = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, 0, 0);
+        // Create fullscreen window at native resolution
+        long windowHandle = glfwCreateWindow(screenWidth, screenHeight, WINDOW_TITLE, primaryMonitor, 0);
         if (windowHandle == 0) {
             glfwTerminate();
             throw new RuntimeException("Failed to create GLFW window");

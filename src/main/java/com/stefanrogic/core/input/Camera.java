@@ -19,7 +19,7 @@ public class Camera {
     private double lastMouseY = 0.0;
     
     // Mouse sensitivity settings
-    private static final float MOUSE_SENSITIVITY = 0.3f;
+    private static final float MOUSE_SENSITIVITY = 0.1f; // Reduced from 0.3f for less sensitivity when free-roaming
     private static final float TRACKING_MOUSE_SENSITIVITY = 0.1f; // FASTER FOR BETTER ORBITAL CAMERA CONTROL
     
     // Movement controls (WASD only - no vertical movement)
@@ -29,7 +29,7 @@ public class Camera {
     private boolean dPressed = false;
     private boolean shiftPressed = false; // SHIFT FOR SPEED BOOST
     private static final float MOVEMENT_SPEED = 0.2f; // BASE SPEED
-    private static final float SPEED_BOOST_MULTIPLIER = 5.0f; // 5X SPEED WHEN SHIFT IS HELD
+    private static final float SPEED_BOOST_MULTIPLIER = 50.0f; // 50X SPEED WHEN SHIFT IS HELD
     
     // Camera tracking
     private boolean trackingEnabled = false;
