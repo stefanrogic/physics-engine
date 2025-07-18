@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 
 import com.stefanrogic.assets.celestial.Mercury;
 import com.stefanrogic.assets.celestial.Venus;
+import com.stefanrogic.assets.celestial.Jupiter;
 import com.stefanrogic.assets.celestial.earth.Earth;
 import com.stefanrogic.assets.celestial.earth.Moon;
 import com.stefanrogic.assets.celestial.mars.Mars;
@@ -65,6 +66,7 @@ public class RenderEngine {
         renderMars(projection, view);
         renderPhobos(projection, view);
         renderDeimos(projection, view);
+        renderJupiter(projection, view);
     }
     
     private void renderSun(Matrix4f projection, Matrix4f view) {
@@ -96,7 +98,13 @@ public class RenderEngine {
     }
     
     private void renderEarth(Matrix4f projection, Matrix4f view) {
-        renderEarthWithSurface(sceneManager.getEarth(), projection, view);
+        Earth earth = sceneManager.getEarth();
+        
+        if (earth.isUsingOBJModel()) {
+            renderEarthWithOBJModel(earth, projection, view);
+        } else {
+            renderEarthWithSurface(earth, projection, view);
+        }
     }
     
     private void renderMoon(Matrix4f projection, Matrix4f view) {
@@ -113,6 +121,16 @@ public class RenderEngine {
     
     private void renderDeimos(Matrix4f projection, Matrix4f view) {
         renderPlanet(sceneManager.getDeimos(), projection, view);
+    }
+    
+    private void renderJupiter(Matrix4f projection, Matrix4f view) {
+        Jupiter jupiter = sceneManager.getJupiter();
+        
+        if (jupiter.isUsingOBJModel()) {
+            renderJupiterWithOBJModel(jupiter, projection, view);
+        } else {
+            renderPlanet(jupiter, projection, view);
+        }
     }
     
     /**
@@ -148,8 +166,137 @@ public class RenderEngine {
         glUniform3f(shaders.planetColorLocation, color.x, color.y, color.z);
         glUniform3f(shaders.planetSunPosLocation, 0.0f, 0.0f, 0.0f); // SUN IS AT ORIGIN
         
+        // SET TEXTURE UNIFORMS - DISABLE ALL TEXTURES FOR PROCEDURAL PLANETS
+        glUniform1i(shaders.planetUseTextureLocation, 0); // Don't use textures
+        glUniform1i(shaders.planetUseCloudsLocation, 0); // Don't use clouds
+        glUniform1i(shaders.planetUseBumpLocation, 0); // Don't use bump maps
+        glUniform1i(shaders.planetUseNightLightsLocation, 0); // Don't use night lights
+
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+    }
+    
+    /**
+     * Render Earth using OBJ model
+     */
+    private void renderEarthWithOBJModel(Earth earth, Matrix4f projection, Matrix4f view) {
+        glUseProgram(shaders.planetShaderProgram); // USE PLANET SHADER FOR OBJ MODELS
+        
+        Vector3f position = earth.getPosition();
+        float rotationAngle = earth.getRotationAngle();
+        
+        // CREATE TRANSFORMATION MATRIX
+        Matrix4f earthModel = new Matrix4f();
+        earthModel.translate(position);
+        earthModel.rotateY(rotationAngle);
+        
+        // Scale the model to match Earth's radius (OBJ model is about 5x too large)
+        float scale = earth.getRadius() / 3.2f; // Approximate radius of OBJ model is 3.2
+        earthModel.scale(scale);
+        
+        Matrix4f earthMVP = new Matrix4f();
+        projection.mul(view, earthMVP);
+        earthMVP.mul(earthModel);
+        
+        FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+        earthMVP.get(matrixBuffer);
+        glUniformMatrix4fv(shaders.planetMvpLocation, false, matrixBuffer);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBuffer = BufferUtils.createFloatBuffer(16);
+        earthModel.get(modelBuffer);
+        glUniformMatrix4fv(shaders.planetModelLocation, false, modelBuffer);
+        
+        // SET EARTH COLOR
+        Vector3f earthColor = earth.getColor();
+        glUniform3f(shaders.planetColorLocation, earthColor.x, earthColor.y, earthColor.z);
+        
+        // SET SUN POSITION FOR LIGHTING
+        glUniform3f(shaders.planetSunPosLocation, 0.0f, 0.0f, 0.0f);
+        
+        // SET TEXTURE UNIFORMS
+        glUniform1i(shaders.planetDiffuseTextureLocation, 0); // Texture unit 0
+        glUniform1i(shaders.planetUseTextureLocation, earth.getModel().getTextureId() != 0 ? 1 : 0);
+        
+        // SET CLOUDS TEXTURE UNIFORMS
+        glUniform1i(shaders.planetCloudsTextureLocation, 1); // Texture unit 1
+        glUniform1i(shaders.planetUseCloudsLocation, earth.getCloudsTextureId() != 0 ? 1 : 0);
+        
+        // SET BUMP TEXTURE UNIFORMS
+        glUniform1i(shaders.planetBumpTextureLocation, 2); // Texture unit 2
+        glUniform1i(shaders.planetUseBumpLocation, earth.getBumpTextureId() != 0 ? 1 : 0);
+        
+        // SET NIGHT LIGHTS TEXTURE UNIFORMS
+        glUniform1i(shaders.planetNightLightsTextureLocation, 3); // Texture unit 3
+        glUniform1i(shaders.planetUseNightLightsLocation, earth.getNightLightsTextureId() != 0 ? 1 : 0);
+        
+        // RENDER THE OBJ MODEL WITH ALL TEXTURES
+        earth.getModel().renderWithNightLights(earth.getCloudsTextureId(), earth.getBumpTextureId(), earth.getNightLightsTextureId());
+    }
+    
+    /**
+     * Specialized Jupiter rendering with OBJ model
+     */
+    private void renderJupiterWithOBJModel(Jupiter jupiter, Matrix4f projection, Matrix4f view) {
+        glUseProgram(shaders.planetShaderProgram); // USE PLANET LIGHTING SHADER
+        
+        Vector3f position = jupiter.getPosition();
+        float rotationAngle = jupiter.getRotationAngle();
+        
+        // CREATE TRANSFORMATION MATRIX
+        Matrix4f jupiterModel = new Matrix4f();
+        jupiterModel.translate(position);
+        
+        // Apply corrective rotation to fix Jupiter OBJ model orientation
+        // The model's north pole needs to point along Y-axis instead of toward the Sun
+        jupiterModel.rotateX((float) Math.toRadians(90.0f)); // Rotate so north pole points up
+        
+        // Apply Jupiter's rotation around Y-axis (now properly oriented)
+        jupiterModel.rotateY(rotationAngle);
+        
+        // Scale the model to match Jupiter's radius (OBJ model is about 3.2 units radius)
+        // Jupiter should be much smaller than the Sun, so we need to scale it down further
+        float scale = jupiter.getRadius() / 10.0f; // Reduced scale to make Jupiter smaller than Sun
+        jupiterModel.scale(scale);
+        
+        Matrix4f jupiterMVP = new Matrix4f();
+        projection.mul(view, jupiterMVP);
+        jupiterMVP.mul(jupiterModel);
+        
+        FloatBuffer matrixBuffer = BufferUtils.createFloatBuffer(16);
+        jupiterMVP.get(matrixBuffer);
+        glUniformMatrix4fv(shaders.planetMvpLocation, false, matrixBuffer);
+        
+        // PASS MODEL MATRIX FOR WORLD-SPACE LIGHTING CALCULATIONS
+        FloatBuffer modelBuffer = BufferUtils.createFloatBuffer(16);
+        jupiterModel.get(modelBuffer);
+        glUniformMatrix4fv(shaders.planetModelLocation, false, modelBuffer);
+        
+        // SET JUPITER COLOR
+        Vector3f jupiterColor = jupiter.getColor();
+        glUniform3f(shaders.planetColorLocation, jupiterColor.x, jupiterColor.y, jupiterColor.z);
+        
+        // SET SUN POSITION FOR LIGHTING
+        glUniform3f(shaders.planetSunPosLocation, 0.0f, 0.0f, 0.0f);
+        
+        // SET TEXTURE UNIFORMS
+        glUniform1i(shaders.planetDiffuseTextureLocation, 0); // Texture unit 0
+        glUniform1i(shaders.planetUseTextureLocation, jupiter.getModel().getTextureId() != 0 ? 1 : 0);
+        
+        // SET CLOUDS TEXTURE UNIFORMS (Jupiter doesn't have clouds texture)
+        glUniform1i(shaders.planetCloudsTextureLocation, 1); // Texture unit 1
+        glUniform1i(shaders.planetUseCloudsLocation, 0); // Disable clouds for Jupiter
+        
+        // SET BUMP TEXTURE UNIFORMS (Jupiter doesn't have bump texture)
+        glUniform1i(shaders.planetBumpTextureLocation, 2); // Texture unit 2
+        glUniform1i(shaders.planetUseBumpLocation, 0); // Disable bump for Jupiter
+        
+        // SET NIGHT LIGHTS TEXTURE UNIFORMS (Jupiter doesn't have night lights)
+        glUniform1i(shaders.planetNightLightsTextureLocation, 3); // Texture unit 3
+        glUniform1i(shaders.planetUseNightLightsLocation, 0); // Disable night lights for Jupiter
+        
+        // RENDER THE OBJ MODEL WITH JUST THE DIFFUSE TEXTURE
+        jupiter.getModel().render(); // Use simple render method for Jupiter
     }
     
     /**
@@ -322,6 +469,9 @@ public class RenderEngine {
                 case "MARS":
                     targetPosition.set(sceneManager.getMars().getPosition());
                     break;
+                case "JUPITER":
+                    targetPosition.set(sceneManager.getJupiter().getPosition());
+                    break;
                 default:
                     targetPosition.set(0, 0, 0);
             }
@@ -383,6 +533,9 @@ public class RenderEngine {
                     break;
                 case "MARS":
                     targetPosition.set(sceneManager.getMars().getPosition());
+                    break;
+                case "JUPITER":
+                    targetPosition.set(sceneManager.getJupiter().getPosition());
                     break;
                 default:
                     targetPosition.set(0, 0, 0);

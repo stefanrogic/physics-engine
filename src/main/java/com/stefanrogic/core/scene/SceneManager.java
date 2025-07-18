@@ -19,6 +19,7 @@ public class SceneManager {
     private Mars mars;
     private Phobos phobos;
     private Deimos deimos;
+    private Jupiter jupiter;
     
     // TIME TRACKING FOR ORBITAL MOTION
     private long lastTime;
@@ -41,6 +42,7 @@ public class SceneManager {
     public Mars getMars() { return mars; }
     public Phobos getPhobos() { return phobos; }
     public Deimos getDeimos() { return deimos; }
+    public Jupiter getJupiter() { return jupiter; }
     
     public boolean isOrbitalMotionPaused() { return orbitalMotionPaused; }
     
@@ -58,6 +60,7 @@ public class SceneManager {
         venus = new Venus();
         earth = new Earth();
         mars = new Mars(); 
+        jupiter = new Jupiter();
         moon = new Moon(earth); // CREATE MOON AFTER EARTH
         phobos = new Phobos(mars); // CREATE PHOBOS AFTER MARS
         deimos = new Deimos(mars); // CREATE DEIMOS AFTER MARS
@@ -69,6 +72,7 @@ public class SceneManager {
         System.out.println("Venus: " + venus.getPosition().x + ", " + venus.getPosition().y + ", " + venus.getPosition().z + " (distance: " + venus.getDistanceFromSun() + ")");
         System.out.println("Earth: " + earth.getPosition().x + ", " + earth.getPosition().y + ", " + earth.getPosition().z + " (distance: " + earth.getDistanceFromSun() + ")");
         System.out.println("Mars: " + mars.getPosition().x + ", " + mars.getPosition().y + ", " + mars.getPosition().z + " (distance: " + mars.getDistanceFromSun() + ")");
+        System.out.println("Jupiter: " + jupiter.getPosition().x + ", " + jupiter.getPosition().y + ", " + jupiter.getPosition().z + " (distance: " + jupiter.getDistanceFromSun() + ")");
         System.out.println("========================");
     }
     
@@ -92,6 +96,10 @@ public class SceneManager {
             
             // UPDATE MARS ORBIT
             mars.updateOrbitalPosition((float) deltaTimeSeconds);
+            
+            // UPDATE JUPITER ORBIT
+            jupiter.updateOrbit((float) deltaTimeSeconds);
+            jupiter.updateRotation((float) deltaTimeSeconds);
             
             // UPDATE MARS MOONS ORBIT AROUND MARS
             phobos.updateOrbitalPosition((float) deltaTimeSeconds);

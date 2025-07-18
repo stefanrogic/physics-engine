@@ -3,15 +3,23 @@ package com.stefanrogic.assets.celestial.earth;
 import org.joml.Vector3f;
 import com.stefanrogic.core.astronomy.AstronomicalCalculator;
 import com.stefanrogic.assets.Sphere;
+import com.stefanrogic.core.rendering.Model;
+import com.stefanrogic.core.rendering.OBJLoader;
+import com.stefanrogic.core.rendering.TextureLoader;
 
 public class Earth {
     private Sphere sphere;
+    private Model earthModel;
     private Vector3f position;
     private Vector3f oceanColor;
     private Vector3f landColor;
     private Vector3f iceColor;
     private Vector3f mountainColor;
     private int VAO, VBO, EBO;
+    private boolean useOBJModel = true; // Flag to switch between OBJ and procedural sphere
+    private int cloudsTextureId = 0; // Store clouds texture separately
+    private int bumpTextureId = 0; // Store bump texture separately
+    private int nightLightsTextureId = 0; // Store night lights texture separately
     
     // EARTH DATA (SCALE: 1 UNIT = 10,000 KM)
     private static final float EARTH_RADIUS = 0.637f; // 6,371 KM ACTUAL RADIUS (REALISTIC SCALE)
@@ -34,7 +42,50 @@ public class Earth {
         this.landColor = new Vector3f(0.05f, 0.5f, 0.05f); // RICHER GREEN CONTINENTS
         this.iceColor = new Vector3f(0.95f, 0.98f, 1.0f); // BRIGHT WHITE ICE CAPS
         this.mountainColor = new Vector3f(0.3f, 0.25f, 0.15f); // BROWNISH MOUNTAINS
-        this.sphere = new Sphere(EARTH_RADIUS, SPHERE_DETAIL, SPHERE_DETAIL);
+        
+        // Load OBJ model if available, otherwise use procedural sphere
+        try {
+            System.out.println("Loading Earth OBJ model...");
+            OBJLoader.ModelData modelData = OBJLoader.loadOBJ("models/earth_model.obj");
+            
+            // Load diffuse texture from PNG file
+            int earthTexture = TextureLoader.loadTextureFromResources("textures/Diffuse_2K.png");
+            System.out.println("Successfully loaded Earth diffuse texture");
+            
+            // Load clouds texture
+            try {
+                cloudsTextureId = TextureLoader.loadTextureFromResources("textures/Clouds_2K.png");
+                System.out.println("Successfully loaded clouds texture");
+            } catch (Exception e) {
+                System.err.println("Failed to load clouds texture: " + e.getMessage());
+                cloudsTextureId = 0;
+            }
+            
+            // Load bump texture
+            try {
+                bumpTextureId = TextureLoader.loadTextureFromResources("textures/Bump_2K.png");
+                System.out.println("Successfully loaded bump texture");
+            } catch (Exception e) {
+                System.err.println("Failed to load bump texture: " + e.getMessage());
+                bumpTextureId = 0;
+            }
+            
+            // Load night lights texture
+            try {
+                nightLightsTextureId = TextureLoader.loadTextureFromResources("textures/Night_lights_2K.png");
+                System.out.println("Successfully loaded night lights texture");
+            } catch (Exception e) {
+                System.err.println("Failed to load night lights texture: " + e.getMessage());
+                nightLightsTextureId = 0;
+            }
+            
+            this.earthModel = new Model(modelData, earthTexture);
+            System.out.println("Successfully loaded Earth OBJ model with PNG texture");
+        } catch (Exception e) {
+            System.err.println("Failed to load Earth OBJ model: " + e.getMessage());
+            this.useOBJModel = false;
+            this.sphere = new Sphere(EARTH_RADIUS, SPHERE_DETAIL, SPHERE_DETAIL);
+        }
         
         setupBuffers();
     }
@@ -133,6 +184,11 @@ public class Earth {
     
     public Vector3f getPosition() { return position; }
     public Sphere getSphere() { return sphere; }
+    public Model getModel() { return earthModel; }
+    public boolean isUsingOBJModel() { return useOBJModel; }
+    public int getCloudsTextureId() { return cloudsTextureId; }
+    public int getBumpTextureId() { return bumpTextureId; }
+    public int getNightLightsTextureId() { return nightLightsTextureId; }
     public float getRadius() { return EARTH_RADIUS; }
     public float getDistanceFromSun() { return DISTANCE_FROM_SUN; }
     
@@ -180,4 +236,11 @@ public class Earth {
     
     // GETTERS FOR ORBITAL DATA
     public float getRotationAngle() { return rotationAngle; }
+    
+    // CLEANUP METHOD
+    public void cleanup() {
+        if (earthModel != null) {
+            earthModel.cleanup();
+        }
+    }
 }
