@@ -1,4 +1,4 @@
-package com.stefanrogic.assets.celestial;
+package com.stefanrogic.assets.celestial.jupiter;
 
 import org.joml.Vector3f;
 import com.stefanrogic.core.astronomy.AstronomicalCalculator;
@@ -15,9 +15,15 @@ public class Jupiter {
     private int VAO, VBO, EBO;
     private boolean useOBJModel = true; // Flag to switch between OBJ and procedural sphere
     
+    // JUPITER'S MOONS (GALILEAN MOONS)
+    private Io io;
+    private Europa europa;
+    private Ganymede ganymede;
+    private Callisto callisto;
+    
     // JUPITER DATA (SCALE: 1 UNIT = 10,000 KM)
     private static final float JUPITER_RADIUS = 6.991f; // 69,911 KM ACTUAL RADIUS (REALISTIC SCALE)
-    private static final float DISTANCE_FROM_SUN = 77850.0f; // 778.5 MILLION KM ACTUAL DISTANCE (5.2 AU)
+    private static final float DISTANCE_FROM_SUN = 77850.0f; // 778.5 MILLION KM ACTUAL DISTANCE (5.2 AU FROM SUN CENTER)
     private static final int SPHERE_DETAIL = 24; // HIGH DETAIL FOR GAS GIANT
     
     // ORBITAL DATA
@@ -52,6 +58,14 @@ public class Jupiter {
         }
         
         setupBuffers();
+        
+        // INITIALIZE JUPITER'S MOONS
+        this.io = new Io(this);
+        this.europa = new Europa(this);
+        this.ganymede = new Ganymede(this);
+        this.callisto = new Callisto(this);
+        
+        System.out.println("Created Jupiter's moons: Io(" + io.getRadius() + "), Europa(" + europa.getRadius() + "), Ganymede(" + ganymede.getRadius() + "), Callisto(" + callisto.getRadius() + ")");
     }
     
     private void setupBuffers() {
@@ -77,6 +91,14 @@ public class Jupiter {
      * Get Jupiter's radius for collision detection and rendering
      */
     public float getRadius() { return JUPITER_RADIUS; }
+    
+    /**
+     * Get Jupiter's moons
+     */
+    public Io getIo() { return io; }
+    public Europa getEuropa() { return europa; }
+    public Ganymede getGanymede() { return ganymede; }
+    public Callisto getCallisto() { return callisto; }
     
     /**
      * Get Jupiter's distance from the Sun for orbital calculations
@@ -130,6 +152,12 @@ public class Jupiter {
         
         // UPDATE POSITION
         updatePosition();
+        
+        // UPDATE JUPITER'S MOONS
+        io.updateOrbit(deltaTime);
+        europa.updateOrbit(deltaTime);
+        ganymede.updateOrbit(deltaTime);
+        callisto.updateOrbit(deltaTime);
     }
     
     /**

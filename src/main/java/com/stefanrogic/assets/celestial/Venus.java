@@ -12,7 +12,7 @@ public class Venus {
     
     // VENUS DATA (SCALE: 1 UNIT = 10,000 KM)
     private static final float VENUS_RADIUS = 0.605f; // 6,052 KM ACTUAL RADIUS
-    private static final float DISTANCE_FROM_SUN = 10800.0f; // 108 MILLION KM ACTUAL DISTANCE
+    private static final float DISTANCE_FROM_SUN = 10800.0f; // 108 MILLION KM ACTUAL DISTANCE (FROM SUN CENTER)
     private static final int SPHERE_DETAIL = 20; // HIGHER DETAIL FOR LARGER PLANET
     
     // ORBITAL DATA

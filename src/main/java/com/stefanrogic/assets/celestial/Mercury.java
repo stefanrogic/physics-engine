@@ -12,7 +12,7 @@ public class Mercury {
     
     // MERCURY DATA (SCALE: 1 UNIT = 10,000 KM) - REALISTIC DISTANCE
     private static final float MERCURY_RADIUS = 0.24f; // 2,440 KM ACTUAL RADIUS
-    private static final float DISTANCE_FROM_SUN = 5800.0f; // 58 MILLION KM ACTUAL DISTANCE
+    private static final float DISTANCE_FROM_SUN = 5800.0f; // 58 MILLION KM ACTUAL DISTANCE (FROM SUN CENTER)
     private static final int SPHERE_DETAIL = 16; // LOWER DETAIL FOR SMALL PLANET
     
     // ORBITAL DATA

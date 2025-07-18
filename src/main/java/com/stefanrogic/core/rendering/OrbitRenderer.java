@@ -27,6 +27,13 @@ public class OrbitRenderer {
     private int marsOrbitVAO, marsOrbitVBO;
     private int phobosOrbitVAO, phobosOrbitVBO;
     private int deimosOrbitVAO, deimosOrbitVBO;
+    private int jupiterOrbitVAO, jupiterOrbitVBO;
+    
+    // JUPITER MOON ORBITS
+    private int ioOrbitVAO, ioOrbitVBO;
+    private int europaOrbitVAO, europaOrbitVBO;
+    private int ganymedeOrbitVAO, ganymedeOrbitVBO;
+    private int callistoOrbitVAO, callistoOrbitVBO;
     
     private static final int ORBIT_SEGMENTS = 128;
     
@@ -46,6 +53,13 @@ public class OrbitRenderer {
         createMarsOrbit();
         createPhobosOrbit();
         createDeimosOrbit();
+        createJupiterOrbit();
+        
+        // CREATE JUPITER MOON ORBITS
+        createIoOrbit();
+        createEuropaOrbit();
+        createGanymedeOrbit();
+        createCallistoOrbit();
     }
     
     private void createMercuryOrbit() {
@@ -144,6 +158,10 @@ public class OrbitRenderer {
      */
     public void renderOrbits(Matrix4f mvpMatrix, float cameraX, float cameraY, float cameraZ) {
         glUseProgram(shaders.gridShaderProgram); // USE SAME SHADER AS GRID FOR THIN LINES
+        
+        // Set line width for better visibility
+        glLineWidth(2.0f);
+        
         FloatBuffer orbitMatrixBuffer = BufferUtils.createFloatBuffer(16);
         mvpMatrix.get(orbitMatrixBuffer);
         glUniformMatrix4fv(shaders.gridMvpLocation, false, orbitMatrixBuffer);
@@ -187,6 +205,23 @@ public class OrbitRenderer {
         
         // RENDER DEIMOS ORBIT (ALWAYS VISIBLE - NOT AFFECTED BY DISTANCE)
         renderRelativeOrbit(deimosOrbitVAO, sceneManager.getMars().getPosition(), mvpMatrix);
+        
+        // RESET MATRIX FOR JUPITER ORBIT (SINCE renderRelativeOrbit MODIFIED THE UNIFORM)
+        mvpMatrix.get(orbitMatrixBuffer);
+        glUniformMatrix4fv(shaders.gridMvpLocation, false, orbitMatrixBuffer);
+        
+        // RENDER JUPITER ORBIT (HIDE WHEN CLOSE - LARGER HIDE DISTANCE DUE TO JUPITER'S SIZE)
+        float jupiterHideDistance = 1000.0f; // Much larger hide distance for Jupiter
+        if (getDistanceToPoint(cameraX, cameraY, cameraZ, sceneManager.getJupiter().getPosition()) > jupiterHideDistance) {
+            glBindVertexArray(jupiterOrbitVAO);
+            glDrawArrays(GL_LINE_LOOP, 0, ORBIT_SEGMENTS + 1);
+        }
+        
+        // RENDER JUPITER MOON ORBITS (ALWAYS VISIBLE - NOT AFFECTED BY DISTANCE)
+        renderRelativeOrbit(ioOrbitVAO, sceneManager.getJupiter().getPosition(), mvpMatrix);
+        renderRelativeOrbit(europaOrbitVAO, sceneManager.getJupiter().getPosition(), mvpMatrix);
+        renderRelativeOrbit(ganymedeOrbitVAO, sceneManager.getJupiter().getPosition(), mvpMatrix);
+        renderRelativeOrbit(callistoOrbitVAO, sceneManager.getJupiter().getPosition(), mvpMatrix);
     }
     
     /**
@@ -207,6 +242,165 @@ public class OrbitRenderer {
     }
     
     /**
+     * Create Jupiter's orbit around the Sun
+     */
+    private void createJupiterOrbit() {
+        // Jupiter's distance from Sun: 778.5 million km (77850 units in our scale)
+        float jupiterDistance = sceneManager.getJupiter().getDistanceFromSun();
+        
+        float[] jupiterOrbitVertices = new float[(ORBIT_SEGMENTS + 1) * 3];
+        for (int i = 0; i <= ORBIT_SEGMENTS; i++) {
+            float angle = (float) (2.0 * Math.PI * i / ORBIT_SEGMENTS);
+            jupiterOrbitVertices[i * 3] = jupiterDistance * (float) Math.cos(angle);
+            jupiterOrbitVertices[i * 3 + 1] = 0.0f;
+            jupiterOrbitVertices[i * 3 + 2] = jupiterDistance * (float) Math.sin(angle);
+        }
+        
+        jupiterOrbitVAO = glGenVertexArrays();
+        jupiterOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(jupiterOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, jupiterOrbitVBO);
+        
+        FloatBuffer jupiterOrbitBuffer = BufferUtils.createFloatBuffer(jupiterOrbitVertices.length);
+        jupiterOrbitBuffer.put(jupiterOrbitVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, jupiterOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
+    /**
+     * Create Io's orbit around Jupiter
+     */
+    private void createIoOrbit() {
+        // Io's distance from Jupiter: 421,600 km (42.16 units in our scale)
+        // Scale up by 10x for better visibility when viewing Jupiter
+        float ioDistance = 42.16f * 10.0f;
+        
+        float[] ioOrbitVertices = new float[(ORBIT_SEGMENTS + 1) * 3];
+        for (int i = 0; i <= ORBIT_SEGMENTS; i++) {
+            float angle = (float) (2.0 * Math.PI * i / ORBIT_SEGMENTS);
+            ioOrbitVertices[i * 3] = ioDistance * (float) Math.cos(angle);
+            ioOrbitVertices[i * 3 + 1] = 0.0f;
+            ioOrbitVertices[i * 3 + 2] = ioDistance * (float) Math.sin(angle);
+        }
+        
+        ioOrbitVAO = glGenVertexArrays();
+        ioOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(ioOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, ioOrbitVBO);
+        
+        FloatBuffer ioOrbitBuffer = BufferUtils.createFloatBuffer(ioOrbitVertices.length);
+        ioOrbitBuffer.put(ioOrbitVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, ioOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
+    /**
+     * Create Europa's orbit around Jupiter
+     */
+    private void createEuropaOrbit() {
+        // Europa's distance from Jupiter: 670,900 km (67.09 units in our scale)
+        // Scale up by 10x for better visibility when viewing Jupiter
+        float europaDistance = 67.09f * 10.0f;
+        
+        float[] europaOrbitVertices = new float[(ORBIT_SEGMENTS + 1) * 3];
+        for (int i = 0; i <= ORBIT_SEGMENTS; i++) {
+            float angle = (float) (2.0 * Math.PI * i / ORBIT_SEGMENTS);
+            europaOrbitVertices[i * 3] = europaDistance * (float) Math.cos(angle);
+            europaOrbitVertices[i * 3 + 1] = 0.0f;
+            europaOrbitVertices[i * 3 + 2] = europaDistance * (float) Math.sin(angle);
+        }
+        
+        europaOrbitVAO = glGenVertexArrays();
+        europaOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(europaOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, europaOrbitVBO);
+        
+        FloatBuffer europaOrbitBuffer = BufferUtils.createFloatBuffer(europaOrbitVertices.length);
+        europaOrbitBuffer.put(europaOrbitVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, europaOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
+    /**
+     * Create Ganymede's orbit around Jupiter
+     */
+    private void createGanymedeOrbit() {
+        // Ganymede's distance from Jupiter: 1,070,400 km (107.04 units in our scale)
+        // Scale up by 10x for better visibility when viewing Jupiter
+        float ganymedeDistance = 107.04f * 10.0f;
+        
+        float[] ganymedeOrbitVertices = new float[(ORBIT_SEGMENTS + 1) * 3];
+        for (int i = 0; i <= ORBIT_SEGMENTS; i++) {
+            float angle = (float) (2.0 * Math.PI * i / ORBIT_SEGMENTS);
+            ganymedeOrbitVertices[i * 3] = ganymedeDistance * (float) Math.cos(angle);
+            ganymedeOrbitVertices[i * 3 + 1] = 0.0f;
+            ganymedeOrbitVertices[i * 3 + 2] = ganymedeDistance * (float) Math.sin(angle);
+        }
+        
+        ganymedeOrbitVAO = glGenVertexArrays();
+        ganymedeOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(ganymedeOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, ganymedeOrbitVBO);
+        
+        FloatBuffer ganymedeOrbitBuffer = BufferUtils.createFloatBuffer(ganymedeOrbitVertices.length);
+        ganymedeOrbitBuffer.put(ganymedeOrbitVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, ganymedeOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
+    /**
+     * Create Callisto's orbit around Jupiter
+     */
+    private void createCallistoOrbit() {
+        // Callisto's distance from Jupiter: 1,882,000 km (188.2 units in our scale)
+        // Scale up by 10x for better visibility when viewing Jupiter
+        float callistoDistance = 188.2f * 10.0f;
+        
+        float[] callistoOrbitVertices = new float[(ORBIT_SEGMENTS + 1) * 3];
+        for (int i = 0; i <= ORBIT_SEGMENTS; i++) {
+            float angle = (float) (2.0 * Math.PI * i / ORBIT_SEGMENTS);
+            callistoOrbitVertices[i * 3] = callistoDistance * (float) Math.cos(angle);
+            callistoOrbitVertices[i * 3 + 1] = 0.0f;
+            callistoOrbitVertices[i * 3 + 2] = callistoDistance * (float) Math.sin(angle);
+        }
+        
+        callistoOrbitVAO = glGenVertexArrays();
+        callistoOrbitVBO = glGenBuffers();
+        
+        glBindVertexArray(callistoOrbitVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, callistoOrbitVBO);
+        
+        FloatBuffer callistoOrbitBuffer = BufferUtils.createFloatBuffer(callistoOrbitVertices.length);
+        callistoOrbitBuffer.put(callistoOrbitVertices).flip();
+        glBufferData(GL_ARRAY_BUFFER, callistoOrbitBuffer, GL_STATIC_DRAW);
+        
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
+        
+        glBindVertexArray(0);
+    }
+    
+    /**
      * Clean up all orbital rendering resources
      */
     public void cleanup() {
@@ -224,6 +418,18 @@ public class OrbitRenderer {
         glDeleteBuffers(phobosOrbitVBO);
         glDeleteVertexArrays(deimosOrbitVAO);
         glDeleteBuffers(deimosOrbitVBO);
+        
+        // Clean up Jupiter and its moon orbits
+        glDeleteVertexArrays(jupiterOrbitVAO);
+        glDeleteBuffers(jupiterOrbitVBO);
+        glDeleteVertexArrays(ioOrbitVAO);
+        glDeleteBuffers(ioOrbitVBO);
+        glDeleteVertexArrays(europaOrbitVAO);
+        glDeleteBuffers(europaOrbitVBO);
+        glDeleteVertexArrays(ganymedeOrbitVAO);
+        glDeleteBuffers(ganymedeOrbitVBO);
+        glDeleteVertexArrays(callistoOrbitVAO);
+        glDeleteBuffers(callistoOrbitVBO);
     }
     
     /**

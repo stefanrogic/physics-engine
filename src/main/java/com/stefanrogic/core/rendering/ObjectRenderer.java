@@ -41,10 +41,21 @@ public class ObjectRenderer {
         createMarsBuffers();
         createPhobosBuffers();
         createDeimosBuffers();
+        
+        // INITIALIZE JUPITER MOON BUFFERS
+        createIoBuffers();
+        createEuropaBuffers();
+        createGanymedeBuffers();
+        createCallistoBuffers();
     }
     
     private void createSunBuffers() {
         Sun sun = sceneManager.getSun();
+        
+        // Skip buffer creation if Sun is using OBJ model
+        if (sun.isUsingOBJModel()) {
+            return;
+        }
         
         // CREATE VAO, VBO, EBO FOR THE SUN
         int VAO = glGenVertexArrays();
@@ -583,6 +594,78 @@ public class ObjectRenderer {
             Math.max(0.1f, result.y + totalEffect),
             Math.max(0.1f, result.z + totalEffect * 0.9f)
         );
+    }
+    
+    private void createIoBuffers() {
+        com.stefanrogic.assets.celestial.jupiter.Io io = sceneManager.getIo();
+        if (io != null) {
+            createGenericMoonBuffers(io);
+        }
+    }
+    
+    private void createEuropaBuffers() {
+        com.stefanrogic.assets.celestial.jupiter.Europa europa = sceneManager.getEuropa();
+        if (europa != null) {
+            createGenericMoonBuffers(europa);
+        }
+    }
+    
+    private void createGanymedeBuffers() {
+        com.stefanrogic.assets.celestial.jupiter.Ganymede ganymede = sceneManager.getGanymede();
+        if (ganymede != null) {
+            createGenericMoonBuffers(ganymede);
+        }
+    }
+    
+    private void createCallistoBuffers() {
+        com.stefanrogic.assets.celestial.jupiter.Callisto callisto = sceneManager.getCallisto();
+        if (callisto != null) {
+            createGenericMoonBuffers(callisto);
+        }
+    }
+    
+    private void createGenericMoonBuffers(Object moon) {
+        try {
+            // Use reflection to access methods
+            Object sphere = moon.getClass().getMethod("getSphere").invoke(moon);
+            float[] vertices = (float[]) sphere.getClass().getMethod("getVertices").invoke(sphere);
+            int[] indices = (int[]) sphere.getClass().getMethod("getIndices").invoke(sphere);
+            
+            // CREATE VAO, VBO, EBO
+            int VAO = glGenVertexArrays();
+            int VBO = glGenBuffers();
+            int EBO = glGenBuffers();
+            
+            moon.getClass().getMethod("setVAO", int.class).invoke(moon, VAO);
+            
+            glBindVertexArray(VAO);
+            
+            // UPLOAD VERTEX DATA
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(vertices.length);
+            vertexBuffer.put(vertices).flip();
+            glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
+            
+            // UPLOAD INDEX DATA
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+            IntBuffer indexBuffer = BufferUtils.createIntBuffer(indices.length);
+            indexBuffer.put(indices).flip();
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBuffer, GL_STATIC_DRAW);
+            
+            // SETUP VERTEX ATTRIBUTES (POSITION, NORMAL, TEXTURE_COORDS)
+            glVertexAttribPointer(0, 3, GL_FLOAT, false, 8 * Float.BYTES, 0);
+            glEnableVertexAttribArray(0);
+            
+            glVertexAttribPointer(1, 3, GL_FLOAT, false, 8 * Float.BYTES, 3 * Float.BYTES);
+            glEnableVertexAttribArray(1);
+            
+            glVertexAttribPointer(2, 2, GL_FLOAT, false, 8 * Float.BYTES, 6 * Float.BYTES);
+            glEnableVertexAttribArray(2);
+            
+            glBindVertexArray(0);
+        } catch (Exception e) {
+            System.err.println("Error creating moon buffers: " + e.getMessage());
+        }
     }
     
     /**

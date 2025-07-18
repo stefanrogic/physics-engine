@@ -57,6 +57,7 @@ public class Window implements InputHandler.InputEventHandler {
         // INITIALIZE COMPONENTS
         objectRenderer.initializeBuffers();
         renderEngine.createGrid();
+        renderEngine.createStars();
         orbitRenderer.createOrbits();
         uiManager.createUI();
         
@@ -255,6 +256,9 @@ public class Window implements InputHandler.InputEventHandler {
         
         // RENDER GRID (IF VISIBLE)
         renderEngine.renderGrid(mvpMatrix, uiManager.isGridVisible());
+        
+        // RENDER STAR FIELD (BACKGROUND)
+        renderEngine.renderStars(mvpMatrix);
         
         // RENDER ORBITAL PATHS (WITH DISTANCE-BASED VISIBILITY)
         orbitRenderer.renderOrbits(mvpMatrix, camera.getX(), camera.getY(), camera.getZ());
