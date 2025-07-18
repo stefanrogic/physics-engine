@@ -34,6 +34,11 @@ public class InputHandler {
     private static final float MARS_BUTTON_X = UIManager.MARS_BUTTON_X;
     private static final float JUPITER_BUTTON_X = UIManager.JUPITER_BUTTON_X;
     
+    // UI BUTTON COORDINATES - FULLSCREEN BUTTON (TOP RIGHT)
+    private static final float FULLSCREEN_BUTTON_WIDTH = UIManager.FULLSCREEN_BUTTON_WIDTH;
+    private static final float FULLSCREEN_BUTTON_HEIGHT = UIManager.FULLSCREEN_BUTTON_HEIGHT;
+    private static final float FULLSCREEN_BUTTON_MARGIN = UIManager.FULLSCREEN_BUTTON_MARGIN;
+    
     private final long windowHandle;
     private boolean mousePressed = false; // Track mouse press state
     
@@ -114,6 +119,24 @@ public class InputHandler {
                adjustedY >= buttonY && adjustedY <= buttonY + TRACK_BUTTON_HEIGHT;
     }
     
+    public boolean isPointInFullscreenButton(double mouseX, double mouseY) {
+        // GET WINDOW SIZE FOR COORDINATE CONVERSION
+        int[] width = new int[1];
+        int[] height = new int[1];
+        glfwGetWindowSize(windowHandle, width, height);
+        
+        // CALCULATE FULLSCREEN BUTTON POSITION (TOP RIGHT)
+        float buttonX = width[0] - FULLSCREEN_BUTTON_WIDTH - FULLSCREEN_BUTTON_MARGIN;
+        float buttonY = height[0] - FULLSCREEN_BUTTON_HEIGHT - FULLSCREEN_BUTTON_MARGIN;
+        
+        // CONVERT GLFW COORDINATES (TOP-LEFT ORIGIN) TO BUTTON COORDINATES (BOTTOM-LEFT ORIGIN)
+        double adjustedY = height[0] - mouseY;
+        
+        // CHECK IF MOUSE IS WITHIN FULLSCREEN BUTTON BOUNDS
+        return mouseX >= buttonX && mouseX <= buttonX + FULLSCREEN_BUTTON_WIDTH &&
+               adjustedY >= buttonY && adjustedY <= buttonY + FULLSCREEN_BUTTON_HEIGHT;
+    }
+    
     /**
      * Interface for handling input events
      */
@@ -121,6 +144,7 @@ public class InputHandler {
         void onGridToggle();
         void onPauseToggle();
         void onTrackingChange(String objectName);
+        void onFullscreenToggle();
         void onCameraMousePress(double x, double y);
         void onCameraMouseRelease();
         void onCameraMouseMove(double x, double y);
@@ -161,6 +185,10 @@ public class InputHandler {
                     // CHECK IF CLICK IS ON PAUSE BUTTON
                     else if (isPointInPauseButton(xpos[0], ypos[0])) {
                         handler.onPauseToggle();
+                    } 
+                    // CHECK IF CLICK IS ON FULLSCREEN BUTTON
+                    else if (isPointInFullscreenButton(xpos[0], ypos[0])) {
+                        handler.onFullscreenToggle();
                     } 
                     // CHECK IF CLICK IS ON TRACKING BUTTONS
                     else if (isPointInTrackingButton(xpos[0], ypos[0], "SUN")) {

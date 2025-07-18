@@ -24,7 +24,8 @@ public class SceneManager {
     
     // TIME TRACKING FOR ORBITAL MOTION
     private long lastTime;
-    private static final float TIME_ACCELERATION = 1.0f; // REAL TIME - NO ACCELERATION
+    // private static final float TIME_ACCELERATION = 1.0f; // REAL TIME - NO ACCELERATION
+    private static final float TIME_ACCELERATION = 10000.0f; // 10000x ACCELERATION FOR FASTER MOTION
     
     // State flags
     private boolean orbitalMotionPaused = false;

@@ -21,6 +21,7 @@ public class Mars {
     
     // ROTATION DATA
     private static final float ROTATION_PERIOD = 1.026f; // MARS ROTATION PERIOD IN EARTH DAYS (24.6 HOURS)
+    private static final float AXIAL_TILT = 25.2f; // MARS AXIAL TILT IN DEGREES (SIMILAR TO EARTH)
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     public Mars() {
@@ -88,4 +89,9 @@ public class Mars {
     
     // GETTERS FOR ORBITAL DATA
     public float getRotationAngle() { return rotationAngle; }
+    
+    /**
+     * Get Mars's axial tilt in degrees
+     */
+    public float getAxialTilt() { return AXIAL_TILT; }
 }

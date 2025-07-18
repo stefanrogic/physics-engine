@@ -32,6 +32,7 @@ public class Earth {
     
     // ROTATION DATA
     private static final float ROTATION_PERIOD = 1.0f; // EARTH'S ROTATION PERIOD IN EARTH DAYS (24 HOURS)
+    private static final float AXIAL_TILT = 23.5f; // EARTH'S AXIAL TILT IN DEGREES (CAUSES SEASONS)
     private float rotationAngle; // CURRENT ROTATION ANGLE IN RADIANS
     
     public Earth() {
@@ -236,6 +237,11 @@ public class Earth {
     
     // GETTERS FOR ORBITAL DATA
     public float getRotationAngle() { return rotationAngle; }
+    
+    /**
+     * Get Earth's axial tilt in degrees
+     */
+    public float getAxialTilt() { return AXIAL_TILT; }
     
     // CLEANUP METHOD
     public void cleanup() {
