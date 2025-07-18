@@ -3,7 +3,6 @@ package com.stefanrogic.assets.celestial.earth;
 import org.joml.Vector3f;
 import com.stefanrogic.core.astronomy.AstronomicalCalculator;
 import com.stefanrogic.assets.Sphere;
-import com.stefanrogic.assets.ProceduralSphere;
 
 public class Earth {
     private Sphere sphere;
@@ -180,8 +179,5 @@ public class Earth {
     }
     
     // GETTERS FOR ORBITAL DATA
-    public float getOrbitalPeriod() { return ORBITAL_PERIOD; }
-    public float getCurrentAngle() { return currentAngle; }
-    public float getRotationPeriod() { return ROTATION_PERIOD; }
     public float getRotationAngle() { return rotationAngle; }
 }

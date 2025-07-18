@@ -88,18 +88,4 @@ public class AstronomicalCalculator {
         }
         return angleDegrees;
     }
-    
-    /**
-     * GET CURRENT DATE STRING FOR DEBUGGING
-     */
-    public static String getCurrentDateString() {
-        return LocalDate.now().toString();
-    }
-    
-    /**
-     * GET DAYS SINCE J2000.0 EPOCH
-     */
-    public static long getDaysSinceJ2000() {
-        return ChronoUnit.DAYS.between(J2000_EPOCH, LocalDate.now());
-    }
 }

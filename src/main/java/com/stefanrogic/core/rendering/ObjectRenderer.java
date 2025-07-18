@@ -345,7 +345,7 @@ public class ObjectRenderer {
      */
     private float[] generateEarthSurfaceVertices(Earth earth) {
         List<Float> vertexList = new ArrayList<>();
-        Sphere sphere = earth.getSphere();
+        // Sphere sphere = earth.getSphere();
         
         int latSegs = 24; // EARTH DETAIL LEVEL
         int lonSegs = 24;
